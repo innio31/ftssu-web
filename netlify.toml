@@ -10,17 +10,47 @@
   to = "/index.html"
   status = 200
 
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/store"
+  to = "/store.html"
+  status = 200
+
+[[redirects]]
+  from = "/cart"
+  to = "/cart.html"
+  status = 200
+
+[[redirects]]
+  from = "/orders"
+  to = "/orders.html"
+  status = 200
+
+[[redirects]]
+  from = "/profile"
+  to = "/profile.html"
+  status = 200
+
+[[redirects]]
+  from = "/attendance"
+  to = "/attendance.html"
+  status = 200
+
+[[redirects]]
+  from = "/announcements"
+  to = "/announcements.html"
+  status = 200
+
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache"
-    Service-Worker-Allowed = "/"
 
 [[headers]]
   for = "/manifest.json"
   [headers.values]
     Cache-Control = "public, max-age=3600"
-
-[dev]
-  command = "npm run dev"
-  port = 3000

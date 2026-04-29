@@ -129,6 +129,7 @@ export default function Dashboard() {
                     <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'profile' ? 'text-red-600' : 'text-gray-500'}`}>
                         <span className="text-2xl">👤</span><span className="text-xs mt-1 font-medium">Profile</span>
                     </button>
+                    {/* Admin Tab - Check for IT Admin, Golf Serial, or Admin */}
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
                         <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'itadmin' ? 'text-red-600' : 'text-gray-500'}`}>
                             <span className="text-2xl">⚙️</span><span className="text-xs mt-1 font-medium">Admin</span>

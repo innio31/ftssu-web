@@ -921,28 +921,45 @@ function ITAdminTab({ member }) {
                 }
             }
 
+            console.log('Saving announcement to:', url)
+            console.log('Request body:', body)
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
 
-            const data = await response.json()
+            // Get the raw response text first
+            const responseText = await response.text()
+            console.log('Raw response:', responseText)
 
-            if (data.success) {
+            // Try to parse as JSON
+            let data
+            try {
+                data = JSON.parse(responseText)
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError)
+                alert('Server returned invalid response. Please check if the API endpoint exists.')
+                setSubmitting(false)
+                return
+            }
+
+            if (data && data.success) {
                 alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
                 loadAnnouncements()
                 setShowAnnouncementModal(false)
                 setEditingAnnouncement(null)
                 setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
             } else {
-                alert(data.error || 'Failed to save announcement')
+                alert(data?.error || 'Failed to save announcement')
             }
         } catch (error) {
             console.error('Error saving announcement:', error)
             alert('Network error: ' + error.message)
+        } finally {
+            setSubmitting(false)
         }
-        setSubmitting(false)
     }
 
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })

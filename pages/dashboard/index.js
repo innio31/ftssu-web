@@ -558,27 +558,11 @@ function ProfileTab({ member, onUpdate }) {
     }
 
     const handleUpdateProfile = async () => {
-        // Validate phone number only if it has content
-        if (editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0) {
-            alert('Phone number must be exactly 11 digits')
-            return
-        }
-
-        // Prepare update data - send all fields that could be updated
+        // Only send phone_number for testing
         const updateData = {
             id: member.id,
-            phone_number: editedData.phone_number,
-            email: editedData.email,
-            date_of_birth: editedData.date_of_birth,
-            date_joined: profile?.date_joined  // Keep existing date_joined
+            phone_number: editedData.phone_number
         }
-
-        // Remove undefined or empty values
-        Object.keys(updateData).forEach(key => {
-            if (updateData[key] === undefined || updateData[key] === null) {
-                delete updateData[key];
-            }
-        });
 
         console.log('Sending update data:', updateData)
         setLoading(true)

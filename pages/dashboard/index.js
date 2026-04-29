@@ -930,9 +930,20 @@ function ITAdminTab({ member }) {
                 body: JSON.stringify(body)
             })
 
+            // Log response status
+            console.log('Response status:', response.status)
+            console.log('Response status text:', response.statusText)
+
             // Get the raw response text first
             const responseText = await response.text()
             console.log('Raw response:', responseText)
+
+            // Check if response is empty
+            if (!responseText || responseText.trim() === '') {
+                alert('Server returned empty response. Please check server logs.')
+                setSubmitting(false)
+                return
+            }
 
             // Try to parse as JSON
             let data
@@ -940,7 +951,8 @@ function ITAdminTab({ member }) {
                 data = JSON.parse(responseText)
             } catch (parseError) {
                 console.error('JSON parse error:', parseError)
-                alert('Server returned invalid response. Please check if the API endpoint exists.')
+                // Show the actual response to help debug
+                alert('Server returned invalid response. Response: ' + responseText.substring(0, 200))
                 setSubmitting(false)
                 return
             }

@@ -38,7 +38,8 @@ export default function CreateServiceModal({ isOpen, onClose, onSuccess, activeS
                     service_date: serviceDate,
                     start_time: startTime,
                     end_time: endTime,
-                    created_by: 'IT Admin'
+                    created_by: 'IT Admin',
+                    is_active: 1  // New services start as active
                 })
             })
             const data = await response.json()

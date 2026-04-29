@@ -836,6 +836,34 @@ function ITAdminTab({ member }) {
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
     const activeServicesCount = services.filter(s => s.is_active == 1).length
 
+    const reopenService = async (serviceId) => {
+        if (confirm('Reopen this service? Attendance can be taken again.')) {
+            // First, close any other active services
+            try {
+                // Close all active services first
+                const closeResponse = await fetch('/api/update_service.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: serviceId,
+                        is_active: 1
+                    })
+                })
+
+                const closeData = await closeResponse.json()
+
+                if (closeData.success) {
+                    alert('Service reopened successfully!')
+                    loadServices()
+                } else {
+                    alert(closeData.error || 'Failed to reopen service')
+                }
+            } catch (error) {
+                console.error('Error reopening service:', error)
+                alert('Network error: ' + error.message)
+            }
+        }
+    }
     // Announcement Modal Component
     const AnnouncementModal = () => {
         const allCommands = ['All Commands', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
@@ -1102,16 +1130,25 @@ function ITAdminTab({ member }) {
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 rounded-full text-xs ${service.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-300 text-gray-600'
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${service.is_active == 1
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-red-100 text-red-700'
                                                 }`}>
-                                                {service.is_active ? 'Active' : 'Closed'}
+                                                {service.is_active == 1 ? '🟢 Active' : '🔴 Closed'}
                                             </span>
-                                            {service.is_active == 1 && (
+                                            {service.is_active == 1 ? (
                                                 <button
                                                     onClick={() => closeService(service.id)}
-                                                    className="text-red-600 text-sm hover:underline"
+                                                    className="text-red-600 text-sm hover:underline px-2 py-1"
                                                 >
                                                     Close
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => reopenService(service.id)}
+                                                    className="text-green-600 text-sm hover:underline px-2 py-1"
+                                                >
+                                                    Reopen
                                                 </button>
                                             )}
                                         </div>

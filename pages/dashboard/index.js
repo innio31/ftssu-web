@@ -728,14 +728,12 @@ function ITAdminTab({ member }) {
     const [members, setMembers] = useState([])
     const [filteredMembers, setFilteredMembers] = useState([])
     const [services, setServices] = useState([])
+    const [announcements, setAnnouncements] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedCommand, setSelectedCommand] = useState('All')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedMember, setSelectedMember] = useState(null)
     const [showCreateService, setShowCreateService] = useState(false)
-
-    // Announcements state
-    const [announcements, setAnnouncements] = useState([])
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [editingAnnouncement, setEditingAnnouncement] = useState(null)
     const [announcementForm, setAnnouncementForm] = useState({
@@ -748,13 +746,7 @@ function ITAdminTab({ member }) {
 
     const commands = ['All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G']
 
-    useEffect(() => {
-        loadMembers()
-        loadServices()
-        loadAnnouncements()  // Add this line
-    }, [])
-    useEffect(() => { filterMembers() }, [members, selectedCommand, searchTerm])
-
+    // Load data
     const loadMembers = async () => {
         try {
             const response = await fetch('/api/get_members.php')
@@ -784,6 +776,52 @@ function ITAdminTab({ member }) {
         }
     }
 
+    // Service functions
+    const closeService = async (serviceId) => {
+        if (confirm('Close this service? Attendance can no longer be taken.')) {
+            try {
+                const response = await fetch('/api/update_service.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: serviceId, is_active: 0 })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Service closed successfully')
+                    loadServices()
+                } else {
+                    alert(data.error || 'Failed to close service')
+                }
+            } catch (error) {
+                console.error('Error closing service:', error)
+                alert('Network error: ' + error.message)
+            }
+        }
+    }
+
+    const reopenService = async (serviceId) => {
+        if (confirm('Reopen this service? Attendance can be taken again.')) {
+            try {
+                const response = await fetch('/api/update_service.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: serviceId, is_active: 1 })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Service reopened successfully')
+                    loadServices()
+                } else {
+                    alert(data.error || 'Failed to reopen service')
+                }
+            } catch (error) {
+                console.error('Error reopening service:', error)
+                alert('Network error: ' + error.message)
+            }
+        }
+    }
+
+    // Member functions
     const filterMembers = () => {
         let filtered = [...members]
         if (selectedCommand !== 'All') filtered = filtered.filter(m => m.command === selectedCommand)
@@ -798,356 +836,127 @@ function ITAdminTab({ member }) {
         setFilteredMembers(filtered)
     }
 
-    const closeService = async (serviceId) => {
-        if (confirm('Close this service? Attendance can no longer be taken.')) {
+    // Announcement functions
+    const handleDeleteAnnouncement = async (id) => {
+        if (confirm('Delete this announcement? This action cannot be undone.')) {
             try {
-                console.log('Closing service:', serviceId)
-
-                const response = await fetch('/api/update_service.php', {
+                const response = await fetch('/api/delete_announcement.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: serviceId,
-                        is_active: 0
-                    })
+                    body: JSON.stringify({ id: id })
                 })
-
-                const textResponse = await response.text()
-                console.log('Raw response:', textResponse)
-
-                let data
-                try {
-                    data = JSON.parse(textResponse)
-                } catch (e) {
-                    console.error('JSON parse error:', e)
-                    alert('Server returned invalid response: ' + textResponse.substring(0, 100))
-                    return
-                }
-
+                const data = await response.json()
                 if (data.success) {
-                    alert('Service closed successfully')
-                    loadServices()
+                    alert('Announcement deleted successfully!')
+                    loadAnnouncements()
                 } else {
-                    alert(data.error || 'Failed to close service')
+                    alert(data.error || 'Failed to delete announcement')
                 }
             } catch (error) {
-                console.error('Error closing service:', error)
+                console.error('Error deleting announcement:', error)
                 alert('Network error: ' + error.message)
             }
         }
+    }
+
+    const handleEditAnnouncement = (announcement) => {
+        setEditingAnnouncement(announcement)
+        setAnnouncementForm({
+            title: announcement.title || '',
+            content: announcement.content || '',
+            target_command: announcement.target_command || '',
+            is_pinned: announcement.is_pinned || 0
+        })
+        setShowAnnouncementModal(true)
+    }
+
+    const handlePinAnnouncement = async (id, currentPinned) => {
+        try {
+            const response = await fetch('/api/pin_announcement.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, is_pinned: currentPinned ? 0 : 1 })
+            })
+            const data = await response.json()
+            if (data.success) {
+                alert(currentPinned ? 'Announcement unpinned!' : 'Announcement pinned!')
+                loadAnnouncements()
+            } else {
+                alert(data.error || 'Failed to update pin status')
+            }
+        } catch (error) {
+            console.error('Error pinning announcement:', error)
+            alert('Network error: ' + error.message)
+        }
+    }
+
+    const handleSaveAnnouncement = async () => {
+        if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
+            alert('Please enter both title and content')
+            return
+        }
+
+        setSubmitting(true)
+        try {
+            let url, body
+
+            if (editingAnnouncement) {
+                url = '/api/update_announcement.php'
+                body = {
+                    id: editingAnnouncement.id,
+                    title: announcementForm.title,
+                    content: announcementForm.content,
+                    target_command: announcementForm.target_command || null,
+                    is_pinned: announcementForm.is_pinned ? 1 : 0
+                }
+            } else {
+                url = '/api/add_announcement.php'
+                body = {
+                    title: announcementForm.title,
+                    content: announcementForm.content,
+                    author: `${member?.first_name} ${member?.last_name}`,
+                    author_role: member?.role,
+                    target_command: announcementForm.target_command || null,
+                    is_pinned: announcementForm.is_pinned ? 1 : 0
+                }
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
+                loadAnnouncements()
+                setShowAnnouncementModal(false)
+                setEditingAnnouncement(null)
+                setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+            } else {
+                alert(data.error || 'Failed to save announcement')
+            }
+        } catch (error) {
+            console.error('Error saving announcement:', error)
+            alert('Network error: ' + error.message)
+        }
+        setSubmitting(false)
     }
 
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
     const activeServicesCount = services.filter(s => s.is_active == 1).length
 
-    const reopenService = async (serviceId) => {
-        if (confirm('Reopen this service? Attendance can be taken again.')) {
-            // First, close any other active services
-            try {
-                // Close all active services first
-                const closeResponse = await fetch('/api/update_service.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: serviceId,
-                        is_active: 1
-                    })
-                })
+    useEffect(() => {
+        loadMembers()
+        loadServices()
+        loadAnnouncements()
+    }, [])
 
-                const closeData = await closeResponse.json()
-
-                if (closeData.success) {
-                    alert('Service reopened successfully!')
-                    loadServices()
-                } else {
-                    alert(closeData.error || 'Failed to reopen service')
-                }
-            } catch (error) {
-                console.error('Error reopening service:', error)
-                alert('Network error: ' + error.message)
-            }
-        }
-    }
-
-    // Announcement Modal Component
-    const AnnouncementModal = () => {
-        const allCommands = ['All Commands', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
-            'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5',
-            'Command 1', 'Command 2', 'Command 3', 'Command 4', 'Command 5', 'Command 6', 'Command 7',
-            'Command 8', 'Command 9', 'Command 10', 'Command 11', 'Command 12', 'Command 13', 'Command 14',
-            'Command 15', 'Command 16', 'Command 17', 'Command 18', 'Command 19', 'Command 20', 'Command 21',
-            'Command 22', 'VETERAN', 'KHMS', 'COVENANT DAY', 'RECRUITMENT & TRAINING', 'SID', 'PATROL',
-            'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING']
-
-        const handleSubmit = async () => {
-            if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
-                alert('Please enter both title and content')
-                return
-            }
-
-            setSubmitting(true)
-            try {
-                const url = editingAnnouncement ? '/api/update_announcement.php' : '/api/add_announcement.php'
-                const body = editingAnnouncement
-                    ? {
-                        id: editingAnnouncement.id,
-                        title: announcementForm.title,
-                        content: announcementForm.content,
-                        target_command: announcementForm.target_command || null,
-                        is_pinned: announcementForm.is_pinned ? 1 : 0
-                    }
-                    : {
-                        title: announcementForm.title,
-                        content: announcementForm.content,
-                        author: `${member?.first_name} ${member?.last_name}`,
-                        author_role: member?.role,
-                        target_command: announcementForm.target_command || null,
-                        is_pinned: announcementForm.is_pinned ? 1 : 0
-                    }
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                })
-                const data = await response.json()
-
-                if (data.success) {
-                    alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
-                    loadAnnouncements()
-                    setShowAnnouncementModal(false)
-                    setEditingAnnouncement(null)
-                    setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
-                } else {
-                    alert(data.error || 'Failed to save announcement')
-                }
-            } catch (error) {
-                console.error('Error:', error)
-                alert('Network error')
-            }
-            setSubmitting(false)
-        }
-
-        // Add these functions inside ITAdminTab component
-
-        const handleDeleteAnnouncement = async (id, e) => {
-            e.stopPropagation()
-            if (confirm('Delete this announcement? This action cannot be undone.')) {
-                try {
-                    const response = await fetch('/api/delete_announcement.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: id })
-                    })
-
-                    const data = await response.json()
-                    console.log('Delete response:', data)
-
-                    if (data.success) {
-                        alert('Announcement deleted successfully!')
-                        loadAnnouncements()
-                    } else {
-                        alert(data.error || 'Failed to delete announcement')
-                    }
-                } catch (error) {
-                    console.error('Error deleting announcement:', error)
-                    alert('Network error: ' + error.message)
-                }
-            }
-        }
-
-        const handleEditAnnouncement = (announcement, e) => {
-            e.stopPropagation()
-            setEditingAnnouncement(announcement)
-            setAnnouncementForm({
-                title: announcement.title || '',
-                content: announcement.content || '',
-                target_command: announcement.target_command || '',
-                is_pinned: announcement.is_pinned || 0
-            })
-            setShowAnnouncementModal(true)
-        }
-
-        const handlePinAnnouncement = async (id, currentPinned, e) => {
-            e.stopPropagation()
-            try {
-                const response = await fetch('/api/pin_announcement.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: id,
-                        is_pinned: currentPinned ? 0 : 1
-                    })
-                })
-
-                const data = await response.json()
-                console.log('Pin response:', data)
-
-                if (data.success) {
-                    alert(currentPinned ? 'Announcement unpinned!' : 'Announcement pinned!')
-                    loadAnnouncements()
-                } else {
-                    alert(data.error || 'Failed to update pin status')
-                }
-            } catch (error) {
-                console.error('Error pinning announcement:', error)
-                alert('Network error: ' + error.message)
-            }
-        }
-
-        const handleSaveAnnouncement = async () => {
-            if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
-                alert('Please enter both title and content')
-                return
-            }
-
-            setSubmitting(true)
-            try {
-                let url, body
-
-                if (editingAnnouncement) {
-                    url = '/api/update_announcement.php'
-                    body = {
-                        id: editingAnnouncement.id,
-                        title: announcementForm.title,
-                        content: announcementForm.content,
-                        target_command: announcementForm.target_command || null,
-                        is_pinned: announcementForm.is_pinned ? 1 : 0
-                    }
-                } else {
-                    url = '/api/add_announcement.php'
-                    body = {
-                        title: announcementForm.title,
-                        content: announcementForm.content,
-                        author: `${member?.first_name} ${member?.last_name}`,
-                        author_role: member?.role,
-                        target_command: announcementForm.target_command || null,
-                        is_pinned: announcementForm.is_pinned ? 1 : 0
-                    }
-                }
-
-                console.log('Saving announcement:', body)
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                })
-
-                const data = await response.json()
-                console.log('Save response:', data)
-
-                if (data.success) {
-                    alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
-                    loadAnnouncements()
-                    setShowAnnouncementModal(false)
-                    setEditingAnnouncement(null)
-                    setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
-                } else {
-                    alert(data.error || 'Failed to save announcement')
-                }
-            } catch (error) {
-                console.error('Error saving announcement:', error)
-                alert('Network error: ' + error.message)
-            }
-            setSubmitting(false)
-        }
-
-        return (
-            <>
-                {/* Announcement Modal */}
-                {showAnnouncementModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
-                        setShowAnnouncementModal(false)
-                        setEditingAnnouncement(null)
-                        setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
-                    }}>
-                        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-gray-800">
-                                    {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
-                                </h2>
-                                <button onClick={() => {
-                                    setShowAnnouncementModal(false)
-                                    setEditingAnnouncement(null)
-                                }} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
-                            </div>
-
-                            <div className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Title *</label>
-                                    <input
-                                        type="text"
-                                        value={announcementForm.title}
-                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                                        placeholder="Announcement title"
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Content *</label>
-                                    <textarea
-                                        value={announcementForm.content}
-                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
-                                        placeholder="Announcement content..."
-                                        rows="5"
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Target Command (Optional)</label>
-                                    <select
-                                        value={announcementForm.target_command}
-                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, target_command: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    >
-                                        {allCommands.map(cmd => (
-                                            <option key={cmd} value={cmd === 'All Commands' ? '' : cmd}>{cmd}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">Leave empty to show to all commands</p>
-                                </div>
-
-                                <div className="flex items-center gap-3">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={announcementForm.is_pinned === 1}
-                                            onChange={(e) => setAnnouncementForm({ ...announcementForm, is_pinned: e.target.checked ? 1 : 0 })}
-                                            className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
-                                        />
-                                        <span className="text-sm font-semibold text-gray-700">Pin this announcement</span>
-                                    </label>
-                                    <span className="text-xs text-gray-500">Pinned announcements appear at the top</span>
-                                </div>
-                            </div>
-
-                            <div className="border-t p-4 flex gap-3">
-                                <button
-                                    onClick={() => {
-                                        setShowAnnouncementModal(false)
-                                        setEditingAnnouncement(null)
-                                    }}
-                                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={submitting}
-                                    className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {submitting ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Post Announcement')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </>
-        )
-    }
+    useEffect(() => {
+        filterMembers()
+    }, [members, selectedCommand, searchTerm])
 
     if (loading) return <div className="text-center py-8">Loading...</div>
 
@@ -1159,27 +968,21 @@ function ITAdminTab({ member }) {
             <div className="flex gap-2 mb-6 border-b pb-2 overflow-x-auto">
                 <button
                     onClick={() => setAdminSubTab('services')}
-                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'services'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'services' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     📅 Service Management
                 </button>
                 <button
                     onClick={() => setAdminSubTab('members')}
-                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'members'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'members' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     👥 Members Management
                 </button>
                 <button
                     onClick={() => setAdminSubTab('announcements')}
-                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'announcements'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'announcements' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     📢 Announcements
@@ -1188,66 +991,48 @@ function ITAdminTab({ member }) {
 
             {/* Service Management Subtab */}
             {adminSubTab === 'services' && (
-                <div>
-                    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-gray-800 text-lg">Service Management</h3>
-                            <button
-                                onClick={() => setShowCreateService(true)}
-                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                            >
-                                + Create Service
-                            </button>
-                        </div>
-
-                        <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                            <p className="text-sm text-blue-800">Active Services: <strong>{activeServicesCount}</strong></p>
-                            <p className="text-xs text-blue-600 mt-1">Only one service can be active at a time</p>
-                        </div>
-
-                        {services.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">No services created yet</p>
-                        ) : (
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {services.map(service => (
-                                    <div key={service.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                                        <div>
-                                            <p className="font-semibold text-gray-800">{service.service_name}</p>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {formatDate(service.service_date)} | {service.start_time} - {service.end_time}
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                Created by: {service.created_by || 'IT Admin'}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${service.is_active == 1
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
-                                                }`}>
-                                                {service.is_active == 1 ? '🟢 Active' : '🔴 Closed'}
-                                            </span>
-                                            {service.is_active == 1 ? (
-                                                <button
-                                                    onClick={() => closeService(service.id)}
-                                                    className="text-red-600 text-sm hover:underline px-2 py-1"
-                                                >
-                                                    Close
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => reopenService(service.id)}
-                                                    className="text-green-600 text-sm hover:underline px-2 py-1"
-                                                >
-                                                    Reopen
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-gray-800 text-lg">Service Management</h3>
+                        <button onClick={() => setShowCreateService(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                            + Create Service
+                        </button>
                     </div>
+
+                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                        <p className="text-sm text-blue-800">Active Services: <strong>{activeServicesCount}</strong></p>
+                        <p className="text-xs text-blue-600 mt-1">Only one service can be active at a time</p>
+                    </div>
+
+                    {services.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">No services created yet</p>
+                    ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {services.map(service => (
+                                <div key={service.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p className="font-semibold text-gray-800">{service.service_name}</p>
+                                        <p className="text-xs text-gray-500 mt-1">{formatDate(service.service_date)} | {service.start_time} - {service.end_time}</p>
+                                        <p className="text-xs text-gray-400 mt-1">Created by: {service.created_by || 'IT Admin'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${service.is_active == 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            {service.is_active == 1 ? '🟢 Active' : '🔴 Closed'}
+                                        </span>
+                                        {service.is_active == 1 ? (
+                                            <button onClick={() => closeService(service.id)} className="text-red-600 text-sm hover:underline px-2 py-1">
+                                                Close
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => reopenService(service.id)} className="text-green-600 text-sm hover:underline px-2 py-1">
+                                                Reopen
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1256,38 +1041,19 @@ function ITAdminTab({ member }) {
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <h3 className="font-bold text-gray-800 text-lg mb-4">Members Management</h3>
 
-                    {/* Filters */}
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                        <select
-                            value={selectedCommand}
-                            onChange={(e) => setSelectedCommand(e.target.value)}
-                            className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                            {commands.map(cmd => (
-                                <option key={cmd} value={cmd}>{cmd}</option>
-                            ))}
+                        <select value={selectedCommand} onChange={(e) => setSelectedCommand(e.target.value)} className="px-3 py-2 border rounded-lg">
+                            {commands.map(cmd => (<option key={cmd} value={cmd}>{cmd}</option>))}
                         </select>
-
-                        <input
-                            type="text"
-                            placeholder="Search by name or ID..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                        />
+                        <input type="text" placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 px-3 py-2 border rounded-lg" />
                     </div>
 
-                    {/* Members List */}
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                         {filteredMembers.length === 0 ? (
                             <p className="text-gray-500 text-center py-8">No members found</p>
                         ) : (
                             filteredMembers.map(memberItem => (
-                                <div
-                                    key={memberItem.id}
-                                    onClick={() => setSelectedMember(memberItem)}
-                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
-                                >
+                                <div key={memberItem.id} onClick={() => setSelectedMember(memberItem)} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                                     <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
                                         {memberItem.profile_picture ? (
                                             <img src={memberItem.profile_picture} alt="" className="w-full h-full object-cover" />
@@ -1298,24 +1064,15 @@ function ITAdminTab({ member }) {
                                         )}
                                     </div>
                                     <div className="flex-1">
-                                        <p className="font-semibold text-gray-800">
-                                            {memberItem.designation} {memberItem.first_name} {memberItem.last_name}
-                                        </p>
+                                        <p className="font-semibold text-gray-800">{memberItem.designation} {memberItem.first_name} {memberItem.last_name}</p>
                                         <p className="text-xs text-gray-500">ID: {memberItem.id_number} | {memberItem.command}</p>
                                     </div>
-                                    <div>
-                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                                            {memberItem.role}
-                                        </span>
-                                    </div>
+                                    <div><span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">{memberItem.role}</span></div>
                                 </div>
                             ))
                         )}
                     </div>
-
-                    <div className="mt-4 text-sm text-gray-500">
-                        Total Members: {filteredMembers.length}
-                    </div>
+                    <div className="mt-4 text-sm text-gray-500">Total Members: {filteredMembers.length}</div>
                 </div>
             )}
 
@@ -1324,14 +1081,11 @@ function ITAdminTab({ member }) {
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-gray-800 text-lg">Announcements Management</h3>
-                        <button
-                            onClick={() => {
-                                setEditingAnnouncement(null)
-                                setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
-                                setShowAnnouncementModal(true)
-                            }}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                        >
+                        <button onClick={() => {
+                            setEditingAnnouncement(null)
+                            setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+                            setShowAnnouncementModal(true)
+                        }} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
                             + New Announcement
                         </button>
                     </div>
@@ -1346,14 +1100,8 @@ function ITAdminTab({ member }) {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 flex-wrap mb-2">
                                                 <h4 className="font-bold text-gray-800">{announcement.title}</h4>
-                                                {announcement.is_pinned == 1 && (
-                                                    <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">📌 Pinned</span>
-                                                )}
-                                                {announcement.target_command && (
-                                                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                                                        Target: {announcement.target_command}
-                                                    </span>
-                                                )}
+                                                {announcement.is_pinned == 1 && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">📌 Pinned</span>}
+                                                {announcement.target_command && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">Target: {announcement.target_command}</span>}
                                             </div>
                                             <p className="text-gray-600 mb-3">{announcement.content}</p>
                                             <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -1362,28 +1110,13 @@ function ITAdminTab({ member }) {
                                             </div>
                                         </div>
                                         <div className="flex gap-2 ml-4">
-                                            <button
-                                                onClick={(e) => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1, e)}
-                                                className={`p-2 rounded-lg transition ${announcement.is_pinned == 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                                title={announcement.is_pinned == 1 ? 'Unpin' : 'Pin'}
-                                                type="button"
-                                            >
+                                            <button onClick={() => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1)} className={`p-2 rounded-lg transition ${announcement.is_pinned == 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title={announcement.is_pinned == 1 ? 'Unpin' : 'Pin'}>
                                                 📌
                                             </button>
-                                            <button
-                                                onClick={(e) => handleEditAnnouncement(announcement, e)}
-                                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
-                                                title="Edit"
-                                                type="button"
-                                            >
+                                            <button onClick={() => handleEditAnnouncement(announcement)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition" title="Edit">
                                                 ✏️
                                             </button>
-                                            <button
-                                                onClick={(e) => handleDeleteAnnouncement(announcement.id, e)}
-                                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
-                                                title="Delete"
-                                                type="button"
-                                            >
+                                            <button onClick={() => handleDeleteAnnouncement(announcement.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Delete">
                                                 🗑️
                                             </button>
                                         </div>
@@ -1395,138 +1128,36 @@ function ITAdminTab({ member }) {
                 </div>
             )}
 
-            {/* Announcement Modal - Move outside the main div */}
+            {/* Modals */}
+            <MemberDetailsModal isOpen={!!selectedMember} onClose={() => setSelectedMember(null)} member={selectedMember} onUpdate={(updatedMember) => { setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m)); setSelectedMember(null) }} />
+            <CreateServiceModal isOpen={showCreateService} onClose={() => setShowCreateService(false)} onSuccess={() => { loadServices(); setShowCreateService(false) }} activeServicesCount={activeServicesCount} />
+
+            {/* Announcement Modal */}
             {showAnnouncementModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => {
-                    if (e.target === e.currentTarget) {
-                        setShowAnnouncementModal(false)
-                        setEditingAnnouncement(null)
-                    }
-                }}>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setShowAnnouncementModal(false); setEditingAnnouncement(null) } }}>
                     <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-gray-800">
-                                {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
-                            </h2>
-                            <button
-                                onClick={() => {
-                                    setShowAnnouncementModal(false)
-                                    setEditingAnnouncement(null)
-                                }}
-                                className="text-gray-500 text-2xl hover:text-gray-700"
-                                type="button"
-                            >
-                                &times;
-                            </button>
+                            <h2 className="text-xl font-bold text-gray-800">{editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}</h2>
+                            <button onClick={() => { setShowAnnouncementModal(false); setEditingAnnouncement(null) }} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
                         </div>
-
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Title *</label>
-                                <input
-                                    type="text"
-                                    value={announcementForm.title}
-                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                                    placeholder="Announcement title"
-                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Content *</label>
-                                <textarea
-                                    value={announcementForm.content}
-                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
-                                    placeholder="Announcement content..."
-                                    rows="5"
-                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Target Command (Optional)</label>
-                                <select
-                                    value={announcementForm.target_command}
-                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, target_command: e.target.value })}
-                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                >
+                            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Title *</label><input type="text" value={announcementForm.title} onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })} placeholder="Announcement title" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" /></div>
+                            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Content *</label><textarea value={announcementForm.content} onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })} placeholder="Announcement content..." rows="5" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none" /></div>
+                            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Target Command (Optional)</label>
+                                <select value={announcementForm.target_command} onChange={(e) => setAnnouncementForm({ ...announcementForm, target_command: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
                                     <option value="">All Commands</option>
-                                    {['UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
-                                        'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5',
-                                        'Command 1', 'Command 2', 'Command 3', 'Command 4', 'Command 5', 'Command 6', 'Command 7',
-                                        'Command 8', 'Command 9', 'Command 10', 'Command 11', 'Command 12', 'Command 13', 'Command 14',
-                                        'Command 15', 'Command 16', 'Command 17', 'Command 18', 'Command 19', 'Command 20', 'Command 21',
-                                        'Command 22', 'VETERAN', 'KHMS', 'COVENANT DAY', 'RECRUITMENT & TRAINING', 'SID', 'PATROL',
-                                        'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'
-                                    ].map(cmd => (
-                                        <option key={cmd} value={cmd}>{cmd}</option>
-                                    ))}
+                                    {['UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G', 'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5'].map(cmd => (<option key={cmd} value={cmd}>{cmd}</option>))}
                                 </select>
                             </div>
-
-                            <div className="flex items-center gap-3">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={announcementForm.is_pinned === 1}
-                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, is_pinned: e.target.checked ? 1 : 0 })}
-                                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
-                                    />
-                                    <span className="text-sm font-semibold text-gray-700">Pin this announcement</span>
-                                </label>
-                                <span className="text-xs text-gray-500">Pinned announcements appear at the top</span>
-                            </div>
+                            <div className="flex items-center gap-3"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={announcementForm.is_pinned === 1} onChange={(e) => setAnnouncementForm({ ...announcementForm, is_pinned: e.target.checked ? 1 : 0 })} className="w-4 h-4 text-red-600 rounded" /><span className="text-sm font-semibold text-gray-700">Pin this announcement</span></label><span className="text-xs text-gray-500">Pinned announcements appear at the top</span></div>
                         </div>
-
                         <div className="border-t p-4 flex gap-3">
-                            <button
-                                onClick={() => {
-                                    setShowAnnouncementModal(false)
-                                    setEditingAnnouncement(null)
-                                }}
-                                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
-                                type="button"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveAnnouncement}
-                                disabled={submitting}
-                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                                type="button"
-                            >
-                                {submitting ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Post Announcement')}
-                            </button>
+                            <button onClick={() => { setShowAnnouncementModal(false); setEditingAnnouncement(null) }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300">Cancel</button>
+                            <button onClick={handleSaveAnnouncement} disabled={submitting} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">{submitting ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Post Announcement')}</button>
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* Modals */}
-            <MemberDetailsModal
-                isOpen={!!selectedMember}
-                onClose={() => setSelectedMember(null)}
-                member={selectedMember}
-                onUpdate={(updatedMember) => {
-                    setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m))
-                    setSelectedMember(null)
-                }}
-            />
-
-            <CreateServiceModal
-                isOpen={showCreateService}
-                onClose={() => setShowCreateService(false)}
-                onSuccess={() => {
-                    loadServices()
-                    setShowCreateService(false)
-                }}
-                activeServicesCount={activeServicesCount}
-            />
-
-            {/* Announcement Modal */}
-            <AnnouncementModal />
         </div>
     )
 }

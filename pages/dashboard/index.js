@@ -1,94 +1,81 @@
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../contexts/CartContext';
-import Link from 'next/link';
-import toast, { Toaster } from 'react-hot-toast';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
 
 export default function Dashboard() {
-    const { member, logout, hasRole } = useAuth();
-    const { cartCount } = useCart();
-    const router = useRouter();
+    const router = useRouter()
+    const [member, setMember] = useState(null)
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (!member) {
-            router.push('/');
+        const stored = localStorage.getItem('ftssu_member')
+        if (!stored) {
+            router.push('/')
+            return
         }
-    }, [member, router]);
+        setMember(JSON.parse(stored))
+        setLoading(false)
+    }, [router])
 
     const handleLogout = () => {
-        logout();
-        toast.success('Logged out successfully');
-        router.push('/');
-    };
-
-    if (!member) {
-        return null;
+        localStorage.removeItem('ftssu_member')
+        router.push('/')
     }
 
-    const menuItems = [
-        { href: '/store', label: '🛍️ Store', color: 'bg-blue-500', show: true },
-        { href: '/cart', label: `🛒 Cart ${cartCount > 0 ? `(${cartCount})` : ''}`, color: 'bg-green-500', show: true },
-        { href: '/orders', label: '📋 My Orders', color: 'bg-purple-500', show: true },
-        { href: '/attendance', label: '📅 Attendance', color: 'bg-yellow-500', show: hasRole(['Senior Commander I', 'Senior Commander II', 'Secretary', 'IT Admin', 'Admin']) },
-        { href: '/announcements', label: '📢 Announcements', color: 'bg-pink-500', show: true },
-        { href: '/profile', label: '👤 Profile', color: 'bg-gray-500', show: true },
-    ];
-
-    const visibleMenu = menuItems.filter(item => item.show);
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">Loading...</div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <Toaster position="top-center" />
-
-            {/* Header */}
-            <div className="bg-red-600 text-white p-6 shadow-lg">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold">FTSSU Portal</h1>
-                            <p className="text-red-100 text-sm mt-1">Faith Tabernacle Security Service Unit</p>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-red-700 px-4 py-2 rounded-lg hover:bg-red-800 transition-colors"
-                        >
-                            Logout
-                        </button>
+            <div className="bg-red-600 text-white p-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold">FTSSU Portal</h1>
+                        <p className="text-sm text-red-100 mt-1">Welcome, {member?.first_name} {member?.last_name}</p>
                     </div>
+                    <button onClick={handleLogout} className="bg-red-700 px-4 py-2 rounded-lg hover:bg-red-800">
+                        Logout
+                    </button>
                 </div>
             </div>
-
-            {/* Welcome Banner */}
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">
-                        Welcome back, {member.designation} {member.first_name} {member.last_name}!
-                    </h2>
-                    <div className="flex gap-4 mt-3">
-                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
-                            {member.role}
-                        </span>
-                        <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-                            {member.command}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Menu Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {visibleMenu.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`${item.color} text-white rounded-xl shadow-md p-6 hover:opacity-90 transition-opacity`}
-                        >
-                            <div className="text-3xl mb-2">{item.label.split(' ')[0]}</div>
-                            <h3 className="text-lg font-semibold">{item.label}</h3>
-                        </Link>
-                    ))}
+            <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <a href="/store" className="bg-blue-500 text-white p-6 rounded-xl shadow-md hover:bg-blue-600 transition">
+                        <div className="text-3xl mb-2">🛍️</div>
+                        <h3 className="font-bold">Store</h3>
+                        <p className="text-sm opacity-90">Order security items</p>
+                    </a>
+                    <a href="/profile" className="bg-green-500 text-white p-6 rounded-xl shadow-md hover:bg-green-600 transition">
+                        <div className="text-3xl mb-2">👤</div>
+                        <h3 className="font-bold">Profile</h3>
+                        <p className="text-sm opacity-90">View and edit profile</p>
+                    </a>
+                    <a href="/cart" className="bg-purple-500 text-white p-6 rounded-xl shadow-md hover:bg-purple-600 transition">
+                        <div className="text-3xl mb-2">🛒</div>
+                        <h3 className="font-bold">Cart</h3>
+                        <p className="text-sm opacity-90">View your cart</p>
+                    </a>
+                    <a href="/orders" className="bg-orange-500 text-white p-6 rounded-xl shadow-md hover:bg-orange-600 transition">
+                        <div className="text-3xl mb-2">📋</div>
+                        <h3 className="font-bold">My Orders</h3>
+                        <p className="text-sm opacity-90">Track your orders</p>
+                    </a>
+                    <a href="/attendance" className="bg-teal-500 text-white p-6 rounded-xl shadow-md hover:bg-teal-600 transition">
+                        <div className="text-3xl mb-2">📅</div>
+                        <h3 className="font-bold">Attendance</h3>
+                        <p className="text-sm opacity-90">Mark attendance</p>
+                    </a>
+                    <a href="/announcements" className="bg-pink-500 text-white p-6 rounded-xl shadow-md hover:bg-pink-600 transition">
+                        <div className="text-3xl mb-2">📢</div>
+                        <h3 className="font-bold">Announcements</h3>
+                        <p className="text-sm opacity-90">View updates</p>
+                    </a>
                 </div>
             </div>
         </div>
-    );
+    )
 }

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 
-export default function CartPage() {
+export default function OrdersPage() {
     const router = useRouter()
-    const [member, setMember] = useState(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -12,7 +11,6 @@ export default function CartPage() {
             router.push('/')
             return
         }
-        setMember(JSON.parse(stored))
         setLoading(false)
     }, [router])
 
@@ -28,12 +26,16 @@ export default function CartPage() {
         <div className="min-h-screen bg-gray-50">
             <div className="bg-red-600 text-white p-6">
                 <button onClick={() => router.back()} className="mr-4">← Back</button>
-                <h1 className="text-2xl font-bold inline">Shopping Cart</h1>
+                <h1 className="text-2xl font-bold inline">My Orders</h1>
             </div>
-            <div className="p-6">
-                <div className="bg-white rounded-xl shadow-md p-6 text-center">
-                    <p className="text-gray-500">Cart functionality coming soon...</p>
-                    <p className="text-sm text-gray-400 mt-2">Logged in as: {member?.first_name} {member?.last_name}</p>
+            <div className="p-6 text-center">
+                <div className="bg-white rounded-xl shadow-md p-12">
+                    <div className="text-6xl mb-4">📋</div>
+                    <h2 className="text-xl font-bold text-gray-700 mb-2">No Orders Yet</h2>
+                    <p className="text-gray-500 mb-6">Your orders will appear here once you make a purchase</p>
+                    <a href="/store" className="bg-red-600 text-white px-6 py-3 rounded-lg inline-block hover:bg-red-700">
+                        Browse Store
+                    </a>
                 </div>
             </div>
         </div>

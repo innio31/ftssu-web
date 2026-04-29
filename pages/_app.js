@@ -6,6 +6,13 @@ import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
     useEffect(() => {
+        // Capture the install prompt globally
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+        });
+
+        // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')

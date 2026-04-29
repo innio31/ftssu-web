@@ -540,6 +540,16 @@ function ProfileTab({ member, onUpdate }) {
 
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Not set'
 
+    // Listen for beforeinstallprompt event
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
     const handleImageUpload = async (imageFile) => {
         const formData = new FormData()
         formData.append('member_id', member.id)
@@ -670,7 +680,53 @@ function ProfileTab({ member, onUpdate }) {
                         <div className="border-b pb-3"><p className="text-xs text-gray-500 uppercase font-semibold">Email</p>{editing ? <input type="email" value={editedData.email} onChange={(e) => setEditedData({ ...editedData, email: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg" /> : <p className="text-gray-800 font-medium">{profile?.email || 'Not set'}</p>}</div>
                     </div>
                     {editing && (<div className="flex gap-3 mt-6"><button onClick={() => { setEditing(false); setEditedData({ phone_number: profile?.phone_number || '', email: profile?.email || '', date_of_birth: profile?.date_of_birth || '' }) }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg">Cancel</button><button onClick={handleUpdateProfile} disabled={loading} className="flex-1 bg-red-600 text-white py-2 rounded-lg disabled:opacity-50">{loading ? 'Saving...' : 'Save Changes'}</button></div>)}
-                    {!showPasswordForm ? <button onClick={() => setShowPasswordForm(true)} className="w-full mt-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">🔑 Change Password</button> : (<div className="mt-6 border-t pt-4"><h4 className="font-bold mb-3">Change Password</h4><div className="space-y-3"><input type="password" placeholder="New Password (min 4 chars)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg" /><input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg" /><div className="flex gap-3"><button onClick={() => { setShowPasswordForm(false); setNewPassword(''); setConfirmPassword('') }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg">Cancel</button><button onClick={handleChangePassword} disabled={loading} className="flex-1 bg-red-600 text-white py-2 rounded-lg disabled:opacity-50">{loading ? 'Updating...' : 'Update Password'}</button></div></div></div>)}
+
+                    {!showPasswordForm ? (
+                        <button onClick={() => setShowPasswordForm(true)} className="w-full mt-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">🔑 Change Password</button>
+                    ) : (
+                        <div className="mt-6 border-t pt-4">
+                            <h4 className="font-bold mb-3">Change Password</h4>
+                            <div className="space-y-3">
+                                <input type="password" placeholder="New Password (min 4 chars)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+                                <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+                                <div className="flex gap-3">
+                                    <button onClick={() => { setShowPasswordForm(false); setNewPassword(''); setConfirmPassword('') }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg">Cancel</button>
+                                    <button onClick={handleChangePassword} disabled={loading} className="flex-1 bg-red-600 text-white py-2 rounded-lg disabled:opacity-50">{loading ? 'Updating...' : 'Update Password'}</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Install App Button - Only show if not installed */}
+                    {typeof window !== 'undefined' && !window.matchMedia('(display-mode: standalone)').matches && (
+                        <button
+                            onClick={() => {
+                                // Trigger install prompt
+                                if (window.deferredPrompt) {
+                                    window.deferredPrompt.prompt();
+                                    window.deferredPrompt.userChoice.then((choiceResult) => {
+                                        if (choiceResult.outcome === 'accepted') {
+                                            console.log('User accepted the install prompt');
+                                        }
+                                        window.deferredPrompt = null;
+                                    });
+                                } else {
+                                    // Show manual instructions
+                                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                                    if (isIOS) {
+                                        alert('To install on iOS:\n\n1. Tap the Share button (📤)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+                                    } else if (/Android/.test(navigator.userAgent)) {
+                                        alert('To install on Android:\n\n1. Tap the menu (three dots ⋮)\n2. Tap "Install app"\n3. Tap "Install"');
+                                    } else {
+                                        alert('To install on Desktop:\n\n1. Look for the install icon (➕) in the address bar\n2. Click "Install"');
+                                    }
+                                }
+                            }}
+                            className="w-full mt-3 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2"
+                        >
+                            📱 Install App on Home Screen
+                        </button>
+                    )}
                 </div>
             </div>
             <ImageUploadModal isOpen={showImageModal} onClose={() => setShowImageModal(false)} onImageUpload={handleImageUpload} currentImage={profile?.profile_picture} />

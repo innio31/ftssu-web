@@ -38,13 +38,13 @@ export default function ImageUploadModal({ isOpen, onClose, onImageUpload, curre
 
     const onImageLoad = (e) => {
         const { width, height } = e.currentTarget
-        const crop = centerAspectCrop(width, height, 1) // 1:1 aspect ratio for square image
+        const crop = centerAspectCrop(width, height, 1)
         setCrop(crop)
     }
 
     const compressImage = async (file) => {
         const options = {
-            maxSizeMB: 0.15, // 150KB
+            maxSizeMB: 0.15,
             maxWidthOrHeight: 800,
             useWebWorker: true,
             fileType: 'image/jpeg',
@@ -94,7 +94,6 @@ export default function ImageUploadModal({ isOpen, onClose, onImageUpload, curre
                     return
                 }
 
-                // Compress the cropped image
                 const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' })
                 const compressedFile = await compressImage(file)
                 resolve(compressedFile)

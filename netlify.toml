@@ -11,39 +11,10 @@
   status = 200
 
 [[redirects]]
-  from = "/dashboard"
-  to = "/dashboard.html"
+  from = "/api/*"
+  to = "https://impactdigitalacademy.com.ng/ftssu/api/:splat"
   status = 200
-
-[[redirects]]
-  from = "/store"
-  to = "/store.html"
-  status = 200
-
-[[redirects]]
-  from = "/cart"
-  to = "/cart.html"
-  status = 200
-
-[[redirects]]
-  from = "/orders"
-  to = "/orders.html"
-  status = 200
-
-[[redirects]]
-  from = "/profile"
-  to = "/profile.html"
-  status = 200
-
-[[redirects]]
-  from = "/attendance"
-  to = "/attendance.html"
-  status = 200
-
-[[redirects]]
-  from = "/announcements"
-  to = "/announcements.html"
-  status = 200
+  force = true
 
 [[headers]]
   for = "/sw.js"
@@ -54,3 +25,9 @@
   for = "/manifest.json"
   [headers.values]
     Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"

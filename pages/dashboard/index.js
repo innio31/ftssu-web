@@ -145,8 +145,8 @@ export default function Dashboard() {
                     )}
                     {/* Acct Admin Tab - For Accountant and Acct Admin roles */}
                     {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'Admin') && (
-                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'acctadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
-                            <span className="text-xl">💰</span>
+                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-2xl">💰</span>
                             <span className="text-xs mt-1 font-medium">Accounts</span>
                         </button>
                     )}
@@ -1085,9 +1085,11 @@ function ITAdminTab({ member }) {
     )
 }
 
-// ============= ACCT ADMIN TAB - Product Management =============
+// ============= ACCT ADMIN TAB - Full Management =============
 function AcctAdminTab({ member }) {
+    const [activeSubTab, setActiveSubTab] = useState('orders')
     const [products, setProducts] = useState([])
+    const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [showProductModal, setShowProductModal] = useState(false)
     const [editingProduct, setEditingProduct] = useState(null)
@@ -1099,11 +1101,21 @@ function AcctAdminTab({ member }) {
         sort_order: 0
     })
     const [submitting, setSubmitting] = useState(false)
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false)
+    const [selectedOrder, setSelectedOrder] = useState(null)
     const [sortableList, setSortableList] = useState(null)
 
     useEffect(() => {
         loadProducts()
+        loadOrders()
     }, [])
+
+    // Reload orders when date filter changes
+    useEffect(() => {
+        loadOrders()
+    }, [startDate, endDate])
 
     const loadProducts = async () => {
         try {
@@ -1119,8 +1131,43 @@ function AcctAdminTab({ member }) {
         }
     }
 
-    const formatPrice = (price) => `₦${Number(price).toLocaleString()}`
+    const loadOrders = async () => {
+        try {
+            let url = '/api/get_all_orders.php'
+            if (startDate && endDate) {
+                url += `?start_date=${startDate}&end_date=${endDate}`
+            } else if (startDate) {
+                url += `?start_date=${startDate}`
+            }
+            const response = await fetch(url)
+            const data = await response.json()
+            if (data.success) {
+                setOrders(data.orders || [])
+            }
+        } catch (error) {
+            console.error('Error loading orders:', error)
+        }
+    }
 
+    const formatPrice = (price) => `₦${Number(price).toLocaleString()}`
+    const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+    const getStatusConfig = (status) => {
+        switch (status) {
+            case 'pending':
+                return { text: 'Pending', color: 'text-yellow-600', bg: 'bg-yellow-100', icon: '⏳' }
+            case 'payment_confirmed':
+                return { text: 'Payment Confirmed', color: 'text-green-600', bg: 'bg-green-100', icon: '✅' }
+            case 'goods_delivered':
+                return { text: 'Goods Delivered', color: 'text-blue-600', bg: 'bg-blue-100', icon: '🚚' }
+            case 'cancelled':
+                return { text: 'Cancelled', color: 'text-red-600', bg: 'bg-red-100', icon: '❌' }
+            default:
+                return { text: status, color: 'text-gray-600', bg: 'bg-gray-100', icon: '📦' }
+        }
+    }
+
+    // Product Management Functions
     const handleSaveProduct = async () => {
         if (!productForm.name.trim()) {
             alert('Please enter product name')
@@ -1191,6 +1238,90 @@ function AcctAdminTab({ member }) {
         }
     }
 
+    // Order Management Functions
+    const confirmPayment = async (orderId, orderNumber) => {
+        if (confirm(`Confirm payment for order ${orderNumber}?`)) {
+            try {
+                const response = await fetch('/api/update_order_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId, status: 'payment_confirmed' })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Payment confirmed!')
+                    loadOrders()
+                } else {
+                    alert(data.error || 'Failed to confirm payment')
+                }
+            } catch (error) {
+                alert('Network error')
+            }
+        }
+    }
+
+    const markDelivered = async () => {
+        if (!selectedOrder) return
+
+        if (confirm(`Mark order ${selectedOrder.order_number} as delivered?`)) {
+            try {
+                const response = await fetch('/api/update_order_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: selectedOrder.id,
+                        status: 'goods_delivered',
+                        delivered_by: `${member?.first_name} ${member?.last_name}`
+                    })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Order marked as delivered!')
+                    setShowDeliveryModal(false)
+                    setSelectedOrder(null)
+                    loadOrders()
+                } else {
+                    alert(data.error || 'Failed to mark delivered')
+                }
+            } catch (error) {
+                alert('Network error')
+            }
+        }
+    }
+
+    const cancelOrder = async (orderId, orderNumber) => {
+        if (confirm(`Cancel order ${orderNumber}? This action cannot be undone.`)) {
+            try {
+                const response = await fetch('/api/update_order_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId, status: 'cancelled' })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Order cancelled')
+                    loadOrders()
+                } else {
+                    alert(data.error || 'Failed to cancel order')
+                }
+            } catch (error) {
+                alert('Network error')
+            }
+        }
+    }
+
+    const viewOrderDetails = async (orderId) => {
+        try {
+            const response = await fetch(`/api/get_order_details.php?id=${orderId}`)
+            const data = await response.json()
+            if (data.success) {
+                alert(`Order ${data.order?.order_number}\nTotal: ${formatPrice(data.order?.total_amount)}\nItems: ${data.items?.length}`)
+            }
+        } catch (error) {
+            console.error('Error:', error)
+        }
+    }
+
     const resetProductForm = () => {
         setProductForm({
             name: '',
@@ -1219,7 +1350,7 @@ function AcctAdminTab({ member }) {
         setShowProductModal(true)
     }
 
-    // Initialize SortableJS after products load
+    // Initialize SortableJS
     useEffect(() => {
         if (!loading && products.length > 0 && typeof Sortable !== 'undefined') {
             const list = document.getElementById('sortable-products-list')
@@ -1273,66 +1404,211 @@ function AcctAdminTab({ member }) {
         }
     }
 
+    // Calculate stats
+    const pendingOrders = orders.filter(o => o.status === 'pending').length
+    const paymentConfirmedOrders = orders.filter(o => o.status === 'payment_confirmed').length
+    const goodsDeliveredOrders = orders.filter(o => o.status === 'goods_delivered').length
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled').length
+    const totalRevenue = orders
+        .filter(o => o.status === 'payment_confirmed' || o.status === 'goods_delivered')
+        .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
+
     if (loading) {
-        return <div className="text-center py-8">Loading products...</div>
+        return <div className="text-center py-8">Loading...</div>
     }
 
     return (
         <div className="pb-24">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">💰 Account Admin Dashboard</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">💰 Accounts Dashboard</h2>
 
-            <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                    <h3 className="font-bold text-gray-800 text-lg">Product Management</h3>
-                    <button
-                        onClick={openAddModal}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                    >
-                        + Add Product
-                    </button>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                <div className="bg-white rounded-xl p-3 text-center shadow-sm border-l-4 border-red-600">
+                    <div className="text-2xl font-bold text-red-600">{orders.length}</div>
+                    <div className="text-xs text-gray-500">Total Orders</div>
                 </div>
-
-                <div className="reorder-notice mb-4">
-                    🔄 <strong>Drag and Drop to Reorder Products</strong> - Drag the ☰ icon to rearrange. Click "Save Order" when done.
+                <div className="bg-white rounded-xl p-3 text-center shadow-sm border-l-4 border-yellow-500">
+                    <div className="text-2xl font-bold text-yellow-600">{pendingOrders}</div>
+                    <div className="text-xs text-gray-500">Pending</div>
                 </div>
+                <div className="bg-white rounded-xl p-3 text-center shadow-sm border-l-4 border-green-500">
+                    <div className="text-2xl font-bold text-green-600">{paymentConfirmedOrders}</div>
+                    <div className="text-xs text-gray-500">Payment Confirmed</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 text-center shadow-sm border-l-4 border-blue-500">
+                    <div className="text-2xl font-bold text-blue-600">{goodsDeliveredOrders}</div>
+                    <div className="text-xs text-gray-500">Delivered</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 text-center shadow-sm border-l-4 border-purple-500">
+                    <div className="text-xl font-bold text-purple-600">₦{totalRevenue.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">Revenue</div>
+                </div>
+            </div>
 
-                {/* Sortable Products List */}
-                <ul id="sortable-products-list" className="space-y-2 mb-4">
-                    {products.map((product, index) => (
-                        <li key={product.id} className="sortable-item bg-gray-50 border rounded-lg p-4 flex flex-wrap justify-between items-center gap-3" data-id={product.id}>
-                            <div className="flex items-center gap-3 flex-1 flex-wrap">
-                                <span className="drag-handle cursor-grab text-gray-400 text-xl">☰</span>
-                                <span className="drag-badge bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">#{index + 1}</span>
-                                <strong className="text-gray-800">{product.name}</strong>
-                                <span className="text-red-600 font-bold">{formatPrice(product.price)}</span>
-                                {product.has_custom_price == 1 && (
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-full text-xs">💝 Custom Price</span>
-                                )}
+            {/* Subtabs */}
+            <div className="flex gap-2 mb-6 border-b pb-2 overflow-x-auto">
+                <button
+                    onClick={() => setActiveSubTab('orders')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${activeSubTab === 'orders' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                >
+                    📋 Orders Management
+                </button>
+                <button
+                    onClick={() => setActiveSubTab('products')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${activeSubTab === 'products' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                >
+                    📦 Products Management
+                </button>
+            </div>
+
+            {/* Orders Management Subtab */}
+            {activeSubTab === 'orders' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <div className="flex flex-wrap gap-4 mb-4 pb-4 border-b">
+                        <div className="flex gap-2 items-end">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="px-3 py-2 border rounded-lg text-sm"
+                                />
                             </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => openEditModal(product)} className="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-yellow-600">
-                                    ✏️ Edit
-                                </button>
-                                <button onClick={() => handleDeleteProduct(product.id, product.name)} className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700">
-                                    🗑️ Delete
-                                </button>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">End Date</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="px-3 py-2 border rounded-lg text-sm"
+                                />
                             </div>
-                        </li>
-                    ))}
-                </ul>
+                            <button onClick={() => { setStartDate(''); setEndDate('') }} className="px-3 py-2 bg-gray-500 text-white rounded-lg text-sm">Clear</button>
+                        </div>
+                    </div>
 
-                {products.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No products available. Add your first product!</p>
-                )}
+                    {orders.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500">No orders found</div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left">Order #</th>
+                                        <th className="px-3 py-2 text-left">Customer</th>
+                                        <th className="px-3 py-2 text-left">Phone</th>
+                                        <th className="px-3 py-2 text-left">Command</th>
+                                        <th className="px-3 py-2 text-left">Total</th>
+                                        <th className="px-3 py-2 text-left">Status</th>
+                                        <th className="px-3 py-2 text-left">Date</th>
+                                        <th className="px-3 py-2 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {orders.map((order) => {
+                                        const statusConfig = getStatusConfig(order.status)
+                                        return (
+                                            <tr key={order.id} className="border-b hover:bg-gray-50">
+                                                <td className="px-3 py-2 font-semibold">{order.order_number}</td>
+                                                <td className="px-3 py-2">{order.customer_name || 'N/A'}</td>
+                                                <td className="px-3 py-2">{order.customer_phone || 'N/A'}</td>
+                                                <td className="px-3 py-2">{order.customer_command || 'N/A'}</td>
+                                                <td className="px-3 py-2 font-semibold text-red-600">{formatPrice(order.total_amount)}</td>
+                                                <td className="px-3 py-2">
+                                                    <span className={`${statusConfig.bg} ${statusConfig.color} px-2 py-1 rounded-full text-xs font-semibold`}>
+                                                        {statusConfig.icon} {statusConfig.text}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 text-xs">{formatDate(order.created_at)}</td>
+                                                <td className="px-3 py-2">
+                                                    <div className="flex gap-1 flex-wrap">
+                                                        {order.status === 'pending' && (
+                                                            <button onClick={() => confirmPayment(order.id, order.order_number)} className="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
+                                                                Confirm Payment
+                                                            </button>
+                                                        )}
+                                                        {order.status === 'payment_confirmed' && (
+                                                            <button onClick={() => {
+                                                                setSelectedOrder(order)
+                                                                setShowDeliveryModal(true)
+                                                            }} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700">
+                                                                Mark Delivered
+                                                            </button>
+                                                        )}
+                                                        {order.status === 'pending' && (
+                                                            <button onClick={() => cancelOrder(order.id, order.order_number)} className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700">
+                                                                Cancel
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => viewOrderDetails(order.id)} className="bg-gray-600 text-white px-2 py-1 rounded text-xs hover:bg-gray-700">
+                                                            View
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
-                {products.length > 0 && (
-                    <div className="text-right">
-                        <button onClick={saveProductOrder} className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700">
-                            💾 Save Product Order
+            {/* Products Management Subtab */}
+            {activeSubTab === 'products' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                        <h3 className="font-bold text-gray-800 text-lg">Product Management</h3>
+                        <button onClick={openAddModal} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">
+                            + Add Product
                         </button>
                     </div>
-                )}
-            </div>
+
+                    <div className="reorder-notice mb-4">
+                        🔄 <strong>Drag and Drop to Reorder Products</strong> - Drag the ☰ icon to rearrange. Click "Save Order" when done.
+                    </div>
+
+                    <ul id="sortable-products-list" className="space-y-2 mb-4">
+                        {products.map((product, index) => (
+                            <li key={product.id} className="sortable-item bg-gray-50 border rounded-lg p-4 flex flex-wrap justify-between items-center gap-3" data-id={product.id}>
+                                <div className="flex items-center gap-3 flex-1 flex-wrap">
+                                    <span className="drag-handle cursor-grab text-gray-400 text-xl">☰</span>
+                                    <span className="drag-badge bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">#{index + 1}</span>
+                                    <strong className="text-gray-800">{product.name}</strong>
+                                    <span className="text-red-600 font-bold">{formatPrice(product.price)}</span>
+                                    {product.has_custom_price == 1 && (
+                                        <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-full text-xs">💝 Custom Price</span>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => openEditModal(product)} className="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-yellow-600">
+                                        ✏️ Edit
+                                    </button>
+                                    <button onClick={() => handleDeleteProduct(product.id, product.name)} className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {products.length === 0 && (
+                        <p className="text-gray-500 text-center py-8">No products available. Add your first product!</p>
+                    )}
+
+                    {products.length > 0 && (
+                        <div className="text-right">
+                            <button onClick={saveProductOrder} className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700">
+                                💾 Save Product Order
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Product Modal */}
             {showProductModal && (
@@ -1423,6 +1699,69 @@ function AcctAdminTab({ member }) {
                                 className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
                             >
                                 {submitting ? 'Saving...' : (editingProduct ? 'Update' : 'Add Product')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delivery Modal */}
+            {showDeliveryModal && selectedOrder && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
+                    setShowDeliveryModal(false)
+                    setSelectedOrder(null)
+                }}>
+                    <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b p-4 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">📦 Confirm Delivery</h3>
+                            <button onClick={() => {
+                                setShowDeliveryModal(false)
+                                setSelectedOrder(null)
+                            }} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Order Number</label>
+                                <input type="text" value={selectedOrder.order_number} readOnly className="w-full px-3 py-2 bg-gray-100 border rounded-lg font-semibold" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Customer</label>
+                                <input type="text" value={selectedOrder.customer_name || 'N/A'} readOnly className="w-full px-3 py-2 bg-gray-100 border rounded-lg" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Total Amount</label>
+                                <input type="text" value={formatPrice(selectedOrder.total_amount)} readOnly className="w-full px-3 py-2 bg-gray-100 border rounded-lg font-bold text-red-600" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Delivered By</label>
+                                <input type="text" value={`${member?.first_name} ${member?.last_name}`} readOnly className="w-full px-3 py-2 bg-green-50 border border-green-300 rounded-lg font-semibold" />
+                                <p className="text-xs text-green-600 mt-1">✓ Automatically recorded from your account</p>
+                            </div>
+
+                            <div className="bg-blue-50 p-3 rounded-lg">
+                                <p className="text-sm text-blue-800">⚠️ Confirmation: This action will mark the order as delivered and cannot be undone.</p>
+                            </div>
+                        </div>
+
+                        <div className="border-t p-4 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeliveryModal(false)
+                                    setSelectedOrder(null)
+                                }}
+                                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={markDelivered}
+                                className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700"
+                            >
+                                ✅ Confirm Delivery
                             </button>
                         </div>
                     </div>

@@ -564,41 +564,21 @@ function ProfileTab({ member, onUpdate }) {
             return
         }
 
-        // Build update data - only include fields that have changed and have value
-        const updateData = { id: member.id }
-        let hasChanges = false
-
-        // Log current values for debugging
-        console.log('Current profile:', {
-            phone: profile?.phone_number,
-            email: profile?.email,
-            dob: profile?.date_of_birth
-        })
-        console.log('Edited data:', editedData)
-
-        if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) {
-            updateData.phone_number = editedData.phone_number
-            hasChanges = true
-            console.log('Phone changed to:', editedData.phone_number)
+        // Prepare update data - send all fields that could be updated
+        const updateData = {
+            id: member.id,
+            phone_number: editedData.phone_number,
+            email: editedData.email,
+            date_of_birth: editedData.date_of_birth,
+            date_joined: profile?.date_joined  // Keep existing date_joined
         }
 
-        if (editedData.email !== profile?.email) {
-            updateData.email = editedData.email
-            hasChanges = true
-            console.log('Email changed to:', editedData.email)
-        }
-
-        if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) {
-            updateData.date_of_birth = editedData.date_of_birth
-            hasChanges = true
-            console.log('DOB changed to:', editedData.date_of_birth)
-        }
-
-        if (!hasChanges) {
-            alert('No changes detected. Please modify a field before saving.')
-            setEditing(false)
-            return
-        }
+        // Remove undefined or empty values
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key] === undefined || updateData[key] === null) {
+                delete updateData[key];
+            }
+        });
 
         console.log('Sending update data:', updateData)
         setLoading(true)

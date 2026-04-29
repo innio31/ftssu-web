@@ -697,35 +697,49 @@ function ProfileTab({ member, onUpdate }) {
                         </div>
                     )}
 
-                    {/* Install App Button - Only show if not installed */}
+                    {/* Install App Section */}
                     {typeof window !== 'undefined' && !window.matchMedia('(display-mode: standalone)').matches && (
-                        <button
-                            onClick={() => {
-                                // Trigger install prompt
-                                if (window.deferredPrompt) {
-                                    window.deferredPrompt.prompt();
-                                    window.deferredPrompt.userChoice.then((choiceResult) => {
-                                        if (choiceResult.outcome === 'accepted') {
-                                            console.log('User accepted the install prompt');
+                        <div className="mt-6 pt-4 border-t">
+                            <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                <span>📱</span> Install App
+                            </h4>
+                            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 text-white">
+                                <p className="text-sm mb-3">
+                                    Install FTSSU on your device for faster access and a better experience!
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                                        const isAndroid = /Android/.test(navigator.userAgent);
+
+                                        if (window.deferredPrompt) {
+                                            window.deferredPrompt.prompt();
+                                            window.deferredPrompt.userChoice.then((choiceResult) => {
+                                                if (choiceResult.outcome === 'accepted') {
+                                                    console.log('User accepted install');
+                                                }
+                                                window.deferredPrompt = null;
+                                            });
+                                        } else if (isIOS) {
+                                            alert('📱 To install on iPhone/iPad:\n\n1. Tap the Share button (📤)\n2. Scroll down\n3. Tap "Add to Home Screen"\n4. Tap "Add"');
+                                        } else if (isAndroid) {
+                                            alert('📱 To install on Android:\n\n1. Tap the Chrome menu (⋮)\n2. Tap "Install app"\n3. Tap "Install"');
+                                        } else {
+                                            alert('💻 To install on Desktop:\n\nLook for the install icon (➕) in the address bar');
                                         }
-                                        window.deferredPrompt = null;
-                                    });
-                                } else {
-                                    // Show manual instructions
-                                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                                    if (isIOS) {
-                                        alert('To install on iOS:\n\n1. Tap the Share button (📤)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
-                                    } else if (/Android/.test(navigator.userAgent)) {
-                                        alert('To install on Android:\n\n1. Tap the menu (three dots ⋮)\n2. Tap "Install app"\n3. Tap "Install"');
-                                    } else {
-                                        alert('To install on Desktop:\n\n1. Look for the install icon (➕) in the address bar\n2. Click "Install"');
-                                    }
-                                }
-                            }}
-                            className="w-full mt-3 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2"
-                        >
-                            📱 Install App on Home Screen
-                        </button>
+                                    }}
+                                    className="w-full bg-white text-blue-600 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="text-xl">⬇️</span>
+                                    Install FTSSU App
+                                </button>
+                                <p className="text-xs text-blue-100 text-center mt-2">
+                                    {/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'Tap Share → Add to Home Screen' :
+                                        /Android/.test(navigator.userAgent) ? 'Open in Chrome and tap Install' :
+                                            'Look for install icon in address bar'}
+                                </p>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>

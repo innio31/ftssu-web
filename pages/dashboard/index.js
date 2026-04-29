@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import ImageUploadModal from '../../components/ImageUploadModal'
+import AttendanceModal from '../../components/AttendanceModal'
+import AttendanceReportModal from '../../components/AttendanceReportModal'
 
 export default function Dashboard() {
     const router = useRouter()
@@ -164,15 +166,7 @@ export default function Dashboard() {
                 )}
 
                 {activeTab === 'attendance' && (
-                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                        <p className="text-gray-500">Attendance coming soon...</p>
-                        <button
-                            onClick={() => window.location.href = '/attendance'}
-                            className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg"
-                        >
-                            Mark Attendance →
-                        </button>
-                    </div>
+                    <AttendanceTab member={member} />
                 )}
             </div>
 
@@ -1141,6 +1135,138 @@ function ProfileTab({ member, onUpdate }) {
                 onClose={() => setShowImageModal(false)}
                 onImageUpload={handleImageUpload}
                 currentImage={profile?.profile_picture}
+            />
+        </div>
+    )
+}
+
+// AttendanceTab component
+function AttendanceTab({ member }) {
+    const [services, setServices] = useState([])
+    const [selectedService, setSelectedService] = useState(null)
+    const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+    const [showReportModal, setShowReportModal] = useState(false)
+    const [loading, setLoading] = useState(true)
+
+    const canTakeAttendance = ['Secretary', 'Senior Commander I', 'Senior Commander II', 'Admin'].includes(member?.role)
+    const canViewReports = ['Golf Charlie', 'Alpha Golf Charlie', 'Golf Serial', 'Alpha Golf Serial', 'Admin', 'IT Admin'].includes(member?.role)
+
+    useEffect(() => {
+        loadActiveServices()
+    }, [])
+
+    const loadActiveServices = async () => {
+        try {
+            const response = await fetch('/api/get_active_services.php')
+            const data = await response.json()
+            if (data.success) {
+                setServices(data.services || [])
+            }
+        } catch (error) {
+            console.error('Error loading services:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const formatDate = (dateStr) => {
+        return new Date(dateStr).toLocaleDateString('en-NG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        })
+    }
+
+    if (loading) {
+        return <div className="text-center py-8">Loading...</div>
+    }
+
+    return (
+        <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>📅</span> Attendance
+            </h2>
+
+            {/* Take Attendance Section */}
+            {canTakeAttendance && (
+                <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-6 text-white mb-6">
+                    <h3 className="text-lg font-bold mb-2">📝 Take Attendance</h3>
+                    <p className="text-red-100 text-sm mb-4">
+                        Record attendance for members in {member.command} command
+                    </p>
+                    <select
+                        value={selectedService?.id || ''}
+                        onChange={(e) => {
+                            const service = services.find(s => s.id === parseInt(e.target.value))
+                            setSelectedService(service)
+                        }}
+                        className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800"
+                    >
+                        <option value="">Select Service</option>
+                        {services.map(service => (
+                            <option key={service.id} value={service.id}>
+                                {service.service_name} - {formatDate(service.service_date)}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={() => setShowAttendanceModal(true)}
+                        disabled={!selectedService}
+                        className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50"
+                    >
+                        Take Attendance
+                    </button>
+                </div>
+            )}
+
+            {/* Active Services List */}
+            {services.length > 0 && (
+                <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Active Services</h3>
+                    <div className="space-y-2">
+                        {services.map(service => (
+                            <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-semibold">{service.service_name}</p>
+                                    <p className="text-xs text-gray-500">{formatDate(service.service_date)} at {service.start_time}</p>
+                                </div>
+                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* View Reports Section */}
+            {canViewReports && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h3 className="font-bold text-gray-800 mb-2">📊 Attendance Reports</h3>
+                    <p className="text-sm text-gray-500 mb-4">View and export attendance records</p>
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700"
+                    >
+                        View Reports
+                    </button>
+                </div>
+            )}
+
+            {/* Modals */}
+            <AttendanceModal
+                isOpen={showAttendanceModal}
+                onClose={() => {
+                    setShowAttendanceModal(false)
+                    setSelectedService(null)
+                }}
+                member={member}
+                service={selectedService}
+                onSuccess={loadActiveServices}
+            />
+
+            <AttendanceReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                member={member}
             />
         </div>
     )

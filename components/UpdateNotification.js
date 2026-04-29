@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FiRefreshCw, FiX } from 'react-icons/fi';
 
 export default function UpdateNotification() {
     const [showUpdate, setShowUpdate] = useState(false);
-    const [waitingWorker, setWaitingWorker] = useState(null);
 
     useEffect(() => {
         if ('serviceWorker' in navigator) {
@@ -13,7 +11,6 @@ export default function UpdateNotification() {
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             setShowUpdate(true);
-                            setWaitingWorker(newWorker);
                         }
                     });
                 });
@@ -22,10 +19,7 @@ export default function UpdateNotification() {
     }, []);
 
     const handleUpdate = () => {
-        if (waitingWorker) {
-            waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-            window.location.reload();
-        }
+        window.location.reload();
     };
 
     if (!showUpdate) return null;
@@ -36,7 +30,7 @@ export default function UpdateNotification() {
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold">New Update Available!</h3>
                     <button onClick={() => setShowUpdate(false)} className="text-white/80 hover:text-white">
-                        <FiX size={18} />
+                        ✕
                     </button>
                 </div>
                 <p className="text-sm text-blue-100 mb-3">
@@ -46,8 +40,7 @@ export default function UpdateNotification() {
                     onClick={handleUpdate}
                     className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 flex items-center gap-2"
                 >
-                    <FiRefreshCw size={16} />
-                    Update Now
+                    🔄 Update Now
                 </button>
             </div>
         </div>

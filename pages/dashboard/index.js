@@ -181,10 +181,18 @@ function StoreTab({ member }) {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        fetchProducts()
-        const savedCart = localStorage.getItem('ftssu_cart')
-        if (savedCart) setCart(JSON.parse(savedCart))
-    }, [])
+        const stored = localStorage.getItem('ftssu_member')
+        if (!stored) {
+            router.push('/')
+            return
+        }
+        const memberData = JSON.parse(stored)
+        console.log('Member role:', memberData.role) // Add this line to debug
+        console.log('Available roles for admin:', memberData.role === 'IT Admin', memberData.role === 'Golf Serial', memberData.role === 'Admin')
+        setMember(memberData)
+        fetchAnnouncements()
+        setLoading(false)
+    }, [router])
 
     const fetchProducts = async () => {
         try {

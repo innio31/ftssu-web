@@ -750,7 +750,7 @@ function OrdersTab({ member }) {
         </div>
     )
 }
-// Add this new component after the OrdersTab component
+
 // Profile Tab Component - Full functionality
 function ProfileTab({ member, onUpdate }) {
     const [profile, setProfile] = useState(member)
@@ -829,30 +829,57 @@ function ProfileTab({ member, onUpdate }) {
             return
         }
 
+        // Prepare data for update - only send fields that have changed
+        const updateData = {
+            id: member.id
+        }
+
+        if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) {
+            updateData.phone_number = editedData.phone_number
+        }
+
+        if (editedData.email !== profile?.email) {
+            updateData.email = editedData.email
+        }
+
+        if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) {
+            updateData.date_of_birth = editedData.date_of_birth
+        }
+
+        // Check if there's anything to update
+        if (Object.keys(updateData).length === 1) {
+            alert('No changes to update')
+            setEditing(false)
+            return
+        }
+
         setLoading(true)
 
         try {
+            console.log('Sending update data:', updateData)
+
             const response = await fetch('/api/update_member.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: member.id,
-                    phone_number: editedData.phone_number,
-                    email: editedData.email,
-                    date_of_birth: editedData.date_of_birth
-                }),
+                body: JSON.stringify(updateData),
             })
+
             const data = await response.json()
+            console.log('Update response:', data)
 
             if (data.success) {
-                const updatedMember = { ...profile, ...editedData }
+                // Update local profile with new data
+                const updatedMember = {
+                    ...profile,
+                    ...updateData
+                }
                 setProfile(updatedMember)
                 localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
                 if (onUpdate) onUpdate(updatedMember)
                 alert('Profile updated successfully!')
                 setEditing(false)
             } else {
-                alert(data.error || 'Failed to update profile')
+                alert(data.error || data.message || 'Failed to update profile')
             }
         } catch (error) {
             console.error('Update error:', error)
@@ -874,6 +901,8 @@ function ProfileTab({ member, onUpdate }) {
         setLoading(true)
 
         try {
+            console.log('Sending password update for member:', member.id)
+
             const response = await fetch('/api/update_member.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -882,7 +911,9 @@ function ProfileTab({ member, onUpdate }) {
                     password: newPassword
                 }),
             })
+
             const data = await response.json()
+            console.log('Password update response:', data)
 
             if (data.success) {
                 alert('Password changed successfully!')
@@ -890,7 +921,7 @@ function ProfileTab({ member, onUpdate }) {
                 setNewPassword('')
                 setConfirmPassword('')
             } else {
-                alert(data.error || 'Failed to change password')
+                alert(data.error || data.message || 'Failed to change password')
             }
         } catch (error) {
             console.error('Password change error:', error)
@@ -1009,14 +1040,25 @@ function ProfileTab({ member, onUpdate }) {
                         <div className="border-b pb-3">
                             <p className="text-xs text-gray-500 uppercase font-semibold">Phone Number</p>
                             {editing ? (
-                                <input
-                                    type="tel"
-                                    value={editedData.phone_number}
-                                    onChange={(e) => setEditedData({ ...editedData, phone_number: e.target.value })}
-                                    placeholder="08012345678"
-                                    maxLength={11}
-                                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                />
+                                <div>
+                                    <input
+                                        type="tel"
+                                        value={editedData.phone_number}
+                                        onChange={(e) => {
+                                            const value = e.target.value.replace(/\D/g, '').slice(0, 11)
+                                            setEditedData({ ...editedData, phone_number: value })
+                                        }}
+                                        placeholder="08012345678"
+                                        maxLength={11}
+                                        className={`w-full mt-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0
+                                                ? 'border-red-500 bg-red-50'
+                                                : 'border-gray-300'
+                                            }`}
+                                    />
+                                    {editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0 && (
+                                        <p className="text-xs text-red-500 mt-1">Phone number must be exactly 11 digits</p>
+                                    )}
+                                </div>
                             ) : (
                                 <p className="text-gray-800 font-medium">{profile?.phone_number || 'Not set'}</p>
                             )}

@@ -152,15 +152,10 @@ export default function Dashboard() {
                 )}
 
                 {activeTab === 'profile' && (
-                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                        <p className="text-gray-500">Profile coming soon...</p>
-                        <button
-                            onClick={() => window.location.href = '/profile'}
-                            className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg"
-                        >
-                            Go to Profile →
-                        </button>
-                    </div>
+                    <ProfileTab member={member} onUpdate={(updatedMember) => {
+                        setMember(updatedMember)
+                        localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
+                    }} />
                 )}
 
                 {activeTab === 'orders' && (
@@ -379,7 +374,7 @@ function StoreTab({ member }) {
                     return `• ${item.name}: ${item.quantity} × ₦${item.price.toLocaleString()} = ₦${(item.price * item.quantity).toLocaleString()}`
                 }).join('%0A')
 
-                const message = `Hello%20Faith%20Tabernacle%20Security%20Accounts%2C%0A%0A✅%20ORDER%20CONFIRMATION%0AOrder%20Number%3A%20${result.order_number}%0A%0A📋%20ORDER%20DETAILS%3A%0A${itemsText}%0A%0A💰%20TOTAL%20AMOUNT%3A%20${formatPrice(getTotalPrice())}%0A%0A👤%20CUSTOMER%20INFORMATION%3A%0AName%3A%20${encodeURIComponent(member.first_name + ' ' + member.last_name)}%0APhone%3A%20${member.phone_number}%0ACommand%3A%20${encodeURIComponent(member.command)}%0A%0A📷%20Payment%20Proof%3A%20(Attach%20screenshot)%0A%0AThank%20you!`
+                const message = `Hello%20Faith%20Tabernacle%20Security%20Accounts%2C%0A%0A✅%20ORDER%20CONFIRMATION%0AOrder%20Number%3A%20${result.order_number}%0A%0A📋%20ORDER%20DETAILS%3A%0A${itemsText}%0A%0A💰%20TOTAL%20AMOUNT%3A%20${formatPrice(getTotalPrice())}%0A%0A👤%20CUSTOMER%20INFORMATION%3A%0AName%3A%20${encodeURIComponent(member.first_name + ' ' + member.last_name)}%0APhone%3A%20${member.phone_number}%0ACommand%3A%20${encodeURIComponent(member.command)}%0A%0A📷%20Payment%20Proof%3A%20(Attach%20screenshot)%0A%0A⚠️%20IMPORTANT%3A%20Payment%20will%20NOT%20be%20confirmed%20if%20payment%20proof%20is%20not%20attached.%0A%0AThank%20you!`
 
                 window.open(`https://wa.me/2348037280183?text=${message}`, '_blank')
 
@@ -752,6 +747,374 @@ function OrdersTab({ member }) {
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
+// Add this new component after the OrdersTab component
+// Profile Tab Component - Full functionality
+function ProfileTab({ member, onUpdate }) {
+    const [profile, setProfile] = useState(member)
+    const [loading, setLoading] = useState(false)
+    const [uploading, setUploading] = useState(false)
+    const [editing, setEditing] = useState(false)
+    const [showPasswordForm, setShowPasswordForm] = useState(false)
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [editedData, setEditedData] = useState({
+        phone_number: member?.phone_number || '',
+        email: member?.email || '',
+        date_of_birth: member?.date_of_birth || ''
+    })
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return 'Not set'
+        return new Date(dateStr).toLocaleDateString('en-NG', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        })
+    }
+
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return ''
+        return dateStr.split('T')[0]
+    }
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file')
+            return
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image must be less than 2MB')
+            return
+        }
+
+        setUploading(true)
+
+        const formData = new FormData()
+        formData.append('member_id', member.id)
+        formData.append('profile_picture', file)
+
+        try {
+            const response = await fetch('/api/update_member.php', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await response.json()
+
+            if (data.success) {
+                const updatedMember = { ...profile, profile_picture: data.member?.profile_picture }
+                setProfile(updatedMember)
+                localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
+                if (onUpdate) onUpdate(updatedMember)
+                alert('Profile picture updated successfully!')
+            } else {
+                alert(data.error || 'Failed to upload image')
+            }
+        } catch (error) {
+            console.error('Upload error:', error)
+            alert('Network error. Please try again.')
+        }
+        setUploading(false)
+    }
+
+    const handleUpdateProfile = async () => {
+        if (editedData.phone_number && editedData.phone_number.length !== 11) {
+            alert('Phone number must be exactly 11 digits')
+            return
+        }
+
+        setLoading(true)
+
+        try {
+            const response = await fetch('/api/update_member.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: member.id,
+                    phone_number: editedData.phone_number,
+                    email: editedData.email,
+                    date_of_birth: editedData.date_of_birth
+                }),
+            })
+            const data = await response.json()
+
+            if (data.success) {
+                const updatedMember = { ...profile, ...editedData }
+                setProfile(updatedMember)
+                localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
+                if (onUpdate) onUpdate(updatedMember)
+                alert('Profile updated successfully!')
+                setEditing(false)
+            } else {
+                alert(data.error || 'Failed to update profile')
+            }
+        } catch (error) {
+            console.error('Update error:', error)
+            alert('Network error. Please try again.')
+        }
+        setLoading(false)
+    }
+
+    const handleChangePassword = async () => {
+        if (!newPassword || newPassword.length < 4) {
+            alert('Password must be at least 4 characters')
+            return
+        }
+        if (newPassword !== confirmPassword) {
+            alert('Passwords do not match')
+            return
+        }
+
+        setLoading(true)
+
+        try {
+            const response = await fetch('/api/update_member.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: member.id,
+                    password: newPassword
+                }),
+            })
+            const data = await response.json()
+
+            if (data.success) {
+                alert('Password changed successfully!')
+                setShowPasswordForm(false)
+                setNewPassword('')
+                setConfirmPassword('')
+            } else {
+                alert(data.error || 'Failed to change password')
+            }
+        } catch (error) {
+            console.error('Password change error:', error)
+            alert('Network error. Please try again.')
+        }
+        setLoading(false)
+    }
+
+    return (
+        <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>👤</span> My Profile
+            </h2>
+
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                {/* Profile Header with Image */}
+                <div className="bg-gradient-to-r from-red-700 to-red-600 p-6 text-center">
+                    <div className="relative inline-block">
+                        <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white mx-auto">
+                            {profile?.profile_picture ? (
+                                <img
+                                    src={profile.profile_picture}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.target.onerror = null
+                                        e.target.src = ''
+                                    }}
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                                    <span className="text-4xl text-gray-500">
+                                        {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <label className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg cursor-pointer hover:bg-gray-100">
+                            <span className="text-xl">📷</span>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                disabled={uploading}
+                            />
+                        </label>
+                        {uploading && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                                <div className="text-white text-sm">Uploading...</div>
+                            </div>
+                        )}
+                    </div>
+                    <h3 className="text-xl font-bold text-white mt-3">
+                        {profile?.designation} {profile?.first_name} {profile?.last_name}
+                    </h3>
+                    <p className="text-red-100 text-sm mt-1">{profile?.role}</p>
+                    <p className="text-red-100 text-xs mt-1">ID: {profile?.id_number}</p>
+                </div>
+
+                {/* Profile Information */}
+                <div className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-gray-800">Personal Information</h3>
+                        {!editing && (
+                            <button
+                                onClick={() => setEditing(true)}
+                                className="text-red-600 text-sm font-semibold hover:underline"
+                            >
+                                Edit Profile
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Designation (Read-only) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Designation</p>
+                            <p className="text-gray-800 font-medium">{profile?.designation}</p>
+                        </div>
+
+                        {/* Command (Read-only) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Command</p>
+                            <p className="text-gray-800 font-medium">{profile?.command}</p>
+                        </div>
+
+                        {/* Gender (Read-only) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Gender</p>
+                            <p className="text-gray-800 font-medium">{profile?.gender}</p>
+                        </div>
+
+                        {/* Date of Birth (Editable) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Date of Birth</p>
+                            {editing ? (
+                                <input
+                                    type="date"
+                                    value={formatDateForInput(editedData.date_of_birth)}
+                                    onChange={(e) => setEditedData({ ...editedData, date_of_birth: e.target.value })}
+                                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            ) : (
+                                <p className="text-gray-800 font-medium">{formatDate(profile?.date_of_birth)}</p>
+                            )}
+                        </div>
+
+                        {/* Date Joined (Read-only) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Date Joined Unit</p>
+                            <p className="text-gray-800 font-medium">{formatDate(profile?.date_joined)}</p>
+                        </div>
+
+                        {/* Phone Number (Editable) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Phone Number</p>
+                            {editing ? (
+                                <input
+                                    type="tel"
+                                    value={editedData.phone_number}
+                                    onChange={(e) => setEditedData({ ...editedData, phone_number: e.target.value })}
+                                    placeholder="08012345678"
+                                    maxLength={11}
+                                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            ) : (
+                                <p className="text-gray-800 font-medium">{profile?.phone_number || 'Not set'}</p>
+                            )}
+                        </div>
+
+                        {/* Email (Editable) */}
+                        <div className="border-b pb-3">
+                            <p className="text-xs text-gray-500 uppercase font-semibold">Email Address</p>
+                            {editing ? (
+                                <input
+                                    type="email"
+                                    value={editedData.email}
+                                    onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
+                                    placeholder="youremail@example.com"
+                                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            ) : (
+                                <p className="text-gray-800 font-medium">{profile?.email || 'Not set'}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Edit Mode Buttons */}
+                    {editing && (
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setEditing(false)
+                                    setEditedData({
+                                        phone_number: profile?.phone_number || '',
+                                        email: profile?.email || '',
+                                        date_of_birth: profile?.date_of_birth || ''
+                                    })
+                                }}
+                                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleUpdateProfile}
+                                disabled={loading}
+                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {loading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Change Password Section */}
+                    {!showPasswordForm ? (
+                        <button
+                            onClick={() => setShowPasswordForm(true)}
+                            className="w-full mt-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition"
+                        >
+                            🔑 Change Password
+                        </button>
+                    ) : (
+                        <div className="mt-6 border-t pt-4">
+                            <h4 className="font-bold text-gray-800 mb-3">Change Password</h4>
+                            <div className="space-y-3">
+                                <input
+                                    type="password"
+                                    placeholder="New Password (min 4 characters)"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Confirm New Password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowPasswordForm(false)
+                                            setNewPassword('')
+                                            setConfirmPassword('')
+                                        }}
+                                        className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleChangePassword}
+                                        disabled={loading}
+                                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                        {loading ? 'Updating...' : 'Update Password'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     )
 }

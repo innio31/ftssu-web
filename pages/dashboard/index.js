@@ -109,14 +109,12 @@ export default function Dashboard() {
                 }} />}
                 {activeTab === 'attendance' && <AttendanceTab member={member} />}
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
-                {activeTab === 'acctadmin' && (
-                    <AcctAdminTab member={member} />
-                )}
+                {activeTab === 'acctadmin' && <AcctAdminTab member={member} />}
             </div>
 
-            {/* Bottom Navigation - Grid Layout */}
+            {/* Bottom Navigation - Flex Layout (better for variable button counts) */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-2">
+                <div className="flex flex-wrap justify-around gap-1 p-2">
                     <button onClick={() => setActiveTab('announcements')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">📢</span>
                         <span className="text-xs mt-1 font-medium">News</span>
@@ -147,8 +145,8 @@ export default function Dashboard() {
                     )}
                     {/* Acct Admin Tab - For Accountant and Acct Admin roles */}
                     {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'Admin') && (
-                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
-                            <span className="text-2xl">💰</span>
+                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'acctadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-xl">💰</span>
                             <span className="text-xs mt-1 font-medium">Accounts</span>
                         </button>
                     )}

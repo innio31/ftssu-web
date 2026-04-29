@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 export default function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-    const [showPrompt, setShowPrompt] = useState(false);
+    const [showInstallPrompt, setShowInstallPrompt] = useState(false);
     const [isInstalled, setIsInstalled] = useState(false);
 
     useEffect(() => {
-        // Check if app is already installed
+        // Check if already installed
         if (window.matchMedia('(display-mode: standalone)').matches) {
             setIsInstalled(true);
             return;
@@ -16,7 +16,7 @@ export default function InstallPrompt() {
         const handler = (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            setShowPrompt(true);
+            setShowInstallPrompt(true);
         };
 
         window.addEventListener('beforeinstallprompt', handler);
@@ -24,7 +24,7 @@ export default function InstallPrompt() {
         // Listen for app installed event
         window.addEventListener('appinstalled', () => {
             setIsInstalled(true);
-            setShowPrompt(false);
+            setShowInstallPrompt(false);
             setDeferredPrompt(null);
         });
 
@@ -40,22 +40,22 @@ export default function InstallPrompt() {
         const { outcome } = await deferredPrompt.userChoice;
 
         if (outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-            setShowPrompt(false);
+            console.log('User accepted install');
+            setShowInstallPrompt(false);
         }
 
         setDeferredPrompt(null);
     };
 
     const handleDismiss = () => {
-        setShowPrompt(false);
-        localStorage.setItem('installPromptDismissed', Date.now().toString());
+        setShowInstallPrompt(false);
+        localStorage.setItem('installPromptDismissed', Date.now());
     };
 
-    if (!showPrompt || isInstalled) return null;
+    if (!showInstallPrompt || isInstalled) return null;
 
     return (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white rounded-xl shadow-2xl border-2 border-red-200 z-50 animate-slide-up">
+        <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white rounded-xl shadow-2xl border-2 border-red-600 z-50 animate-slide-up">
             <div className="p-4">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
@@ -67,19 +67,19 @@ export default function InstallPrompt() {
                             <p className="text-xs text-gray-500">Get a better experience</p>
                         </div>
                     </div>
-                    <button onClick={handleDismiss} className="text-gray-400 hover:text-gray-600">
-                        ✕
+                    <button onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 text-xl">
+                        &times;
                     </button>
                 </div>
 
-                <div className="text-sm text-gray-600 mb-4">
-                    Install our app for quick access to orders, attendance, and announcements.
-                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                    Install our app for quick access to orders, attendance tracking, and announcements.
+                </p>
 
                 <div className="flex gap-2">
                     <button
                         onClick={handleInstall}
-                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 flex items-center justify-center gap-2"
+                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700"
                     >
                         📱 Install App
                     </button>

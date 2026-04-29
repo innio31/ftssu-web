@@ -1,4 +1,4 @@
-import { Html, Head, Main, NextScript } from 'next/document'
+import { Html, Head, Main, NextScript } from 'next/document';
 
 export default function Document() {
     return (
@@ -6,16 +6,18 @@ export default function Document() {
             <Head>
                 <meta charSet="utf-8" />
                 <meta name="theme-color" content="#cc0000" />
-                <link rel="manifest" href="/manifest.json" />
+                <meta name="mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta name="apple-mobile-web-app-title" content="FTSSU" />
-                <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+                <link rel="manifest" href="/manifest.json" />
+                <link rel="apple-touch-icon" href="/icons/manifest-icon-192.png" />
+                <link rel="icon" href="/favicon.ico" />
             </Head>
             <body>
                 <Main />
                 <NextScript />
             </body>
         </Html>
-    )
+    );
 }

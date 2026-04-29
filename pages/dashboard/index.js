@@ -111,28 +111,33 @@ export default function Dashboard() {
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
             </div>
 
-            {/* Bottom Navigation */}
+            {/* Bottom Navigation - Grid Layout */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-                <div className="flex justify-around items-center">
-                    <button onClick={() => setActiveTab('announcements')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'announcements' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-2xl">📢</span><span className="text-xs mt-1 font-medium">News</span>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-2">
+                    <button onClick={() => setActiveTab('announcements')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">📢</span>
+                        <span className="text-xs mt-1 font-medium">News</span>
                     </button>
-                    <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'store' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-2xl">🛍️</span><span className="text-xs mt-1 font-medium">Store</span>
+                    <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'store' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">🛍️</span>
+                        <span className="text-xs mt-1 font-medium">Store</span>
                     </button>
-                    <button onClick={() => setActiveTab('orders')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'orders' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-2xl">📋</span><span className="text-xs mt-1 font-medium">Orders</span>
+                    <button onClick={() => setActiveTab('orders')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">📋</span>
+                        <span className="text-xs mt-1 font-medium">Orders</span>
                     </button>
-                    <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'attendance' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-2xl">📅</span><span className="text-xs mt-1 font-medium">Attendance</span>
+                    <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">📅</span>
+                        <span className="text-xs mt-1 font-medium">Attendance</span>
                     </button>
-                    <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'profile' ? 'text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-2xl">👤</span><span className="text-xs mt-1 font-medium">Profile</span>
+                    <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'profile' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">👤</span>
+                        <span className="text-xs mt-1 font-medium">Profile</span>
                     </button>
-                    {/* Admin Tab - Check for IT Admin, Golf Serial, or Admin */}
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
-                        <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'itadmin' ? 'text-red-600' : 'text-gray-500'}`}>
-                            <span className="text-2xl">⚙️</span><span className="text-xs mt-1 font-medium">Admin</span>
+                        <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-xl">⚙️</span>
+                            <span className="text-xs mt-1 font-medium">Admin</span>
                         </button>
                     )}
                 </div>

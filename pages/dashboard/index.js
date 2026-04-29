@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import ImageUploadModal from '../components/ImageUploadModal'
 
 export default function Dashboard() {
     const router = useRouter()
@@ -751,7 +752,6 @@ function OrdersTab({ member }) {
     )
 }
 
-// Profile Tab Component - Full functionality
 function ProfileTab({ member, onUpdate }) {
     const [profile, setProfile] = useState(member)
     const [loading, setLoading] = useState(false)
@@ -760,6 +760,7 @@ function ProfileTab({ member, onUpdate }) {
     const [showPasswordForm, setShowPasswordForm] = useState(false)
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [showImageModal, setShowImageModal] = useState(false)
     const [editedData, setEditedData] = useState({
         phone_number: member?.phone_number || '',
         email: member?.email || '',
@@ -780,25 +781,12 @@ function ProfileTab({ member, onUpdate }) {
         return dateStr.split('T')[0]
     }
 
-    const handleImageUpload = async (e) => {
-        const file = e.target.files[0]
-        if (!file) return
-
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file')
-            return
-        }
-
-        if (file.size > 2 * 1024 * 1024) {
-            alert('Image must be less than 2MB')
-            return
-        }
-
+    // Updated image upload handler
+    const handleImageUpload = async (imageFile) => {
         setUploading(true)
-
         const formData = new FormData()
         formData.append('member_id', member.id)
-        formData.append('profile_picture', file)
+        formData.append('profile_picture', imageFile)
 
         try {
             const response = await fetch('/api/update_member.php', {
@@ -937,9 +925,9 @@ function ProfileTab({ member, onUpdate }) {
             </h2>
 
             <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                {/* Profile Header with Image */}
+                {/* Profile Header with Image - Updated to use modal */}
                 <div className="bg-gradient-to-r from-red-700 to-red-600 p-6 text-center">
-                    <div className="relative inline-block">
+                    <div className="relative inline-block cursor-pointer" onClick={() => setShowImageModal(true)}>
                         <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white mx-auto">
                             {profile?.profile_picture ? (
                                 <img
@@ -959,27 +947,16 @@ function ProfileTab({ member, onUpdate }) {
                                 </div>
                             )}
                         </div>
-                        <label className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg cursor-pointer hover:bg-gray-100">
+                        <div className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg">
                             <span className="text-xl">📷</span>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                                disabled={uploading}
-                            />
-                        </label>
-                        {uploading && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                                <div className="text-white text-sm">Uploading...</div>
-                            </div>
-                        )}
+                        </div>
                     </div>
                     <h3 className="text-xl font-bold text-white mt-3">
                         {profile?.designation} {profile?.first_name} {profile?.last_name}
                     </h3>
                     <p className="text-red-100 text-sm mt-1">{profile?.role}</p>
                     <p className="text-red-100 text-xs mt-1">ID: {profile?.id_number}</p>
+                    <p className="text-red-100 text-xs mt-1 italic">Click on image to change</p>
                 </div>
 
                 {/* Profile Information */}
@@ -1051,8 +1028,8 @@ function ProfileTab({ member, onUpdate }) {
                                         placeholder="08012345678"
                                         maxLength={11}
                                         className={`w-full mt-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 ${editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0
-                                                ? 'border-red-500 bg-red-50'
-                                                : 'border-gray-300'
+                                            ? 'border-red-500 bg-red-50'
+                                            : 'border-gray-300'
                                             }`}
                                     />
                                     {editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0 && (
@@ -1157,6 +1134,14 @@ function ProfileTab({ member, onUpdate }) {
                     )}
                 </div>
             </div>
+
+            {/* Image Upload Modal - Make sure this component exists */}
+            <ImageUploadModal
+                isOpen={showImageModal}
+                onClose={() => setShowImageModal(false)}
+                onImageUpload={handleImageUpload}
+                currentImage={profile?.profile_picture}
+            />
         </div>
     )
 }

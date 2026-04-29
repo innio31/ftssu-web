@@ -901,6 +901,7 @@ function ITAdminTab({ member }) {
             let url, body
 
             if (editingAnnouncement) {
+                // Use the update endpoint
                 url = '/api/update_announcement.php'
                 body = {
                     id: editingAnnouncement.id,
@@ -910,6 +911,7 @@ function ITAdminTab({ member }) {
                     is_pinned: announcementForm.is_pinned ? 1 : 0
                 }
             } else {
+                // Use the add endpoint
                 url = '/api/add_announcement.php'
                 body = {
                     title: announcementForm.title,
@@ -922,49 +924,47 @@ function ITAdminTab({ member }) {
             }
 
             console.log('Saving announcement to:', url)
-            console.log('Request body:', body)
+            console.log('Request body:', JSON.stringify(body, null, 2))
 
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify(body)
             })
 
-            // Log response status
             console.log('Response status:', response.status)
-            console.log('Response status text:', response.statusText)
 
-            // Get the raw response text first
+            // Get the response text
             const responseText = await response.text()
             console.log('Raw response:', responseText)
 
-            // Check if response is empty
             if (!responseText || responseText.trim() === '') {
-                alert('Server returned empty response. Please check server logs.')
+                alert('Server returned empty response')
                 setSubmitting(false)
                 return
             }
 
-            // Try to parse as JSON
             let data
             try {
                 data = JSON.parse(responseText)
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError)
-                // Show the actual response to help debug
-                alert('Server returned invalid response. Response: ' + responseText.substring(0, 200))
+            } catch (e) {
+                console.error('JSON parse error:', e)
+                alert('Server error: ' + responseText.substring(0, 200))
                 setSubmitting(false)
                 return
             }
 
-            if (data && data.success) {
-                alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
+            if (data.success) {
+                alert(editingAnnouncement ? 'Announcement updated successfully!' : 'Announcement posted successfully!')
                 loadAnnouncements()
                 setShowAnnouncementModal(false)
                 setEditingAnnouncement(null)
                 setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
             } else {
-                alert(data?.error || 'Failed to save announcement')
+                alert(data.error || 'Failed to save announcement')
             }
         } catch (error) {
             console.error('Error saving announcement:', error)

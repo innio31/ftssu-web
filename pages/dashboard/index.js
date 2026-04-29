@@ -558,10 +558,34 @@ function ProfileTab({ member, onUpdate }) {
     }
 
     const handleUpdateProfile = async () => {
-        // Only send phone_number for testing
+        // Validate phone number only if it has content
+        if (editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0) {
+            alert('Phone number must be exactly 11 digits')
+            return
+        }
+
+        // Prepare update data - send all fields that could be updated
         const updateData = {
-            id: member.id,
-            phone_number: editedData.phone_number
+            id: member.id
+        }
+
+        // Only include fields that have changed
+        if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) {
+            updateData.phone_number = editedData.phone_number
+        }
+
+        if (editedData.email !== profile?.email) {
+            updateData.email = editedData.email
+        }
+
+        if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) {
+            updateData.date_of_birth = editedData.date_of_birth
+        }
+
+        if (Object.keys(updateData).length === 1) {
+            alert('No changes to update')
+            setEditing(false)
+            return
         }
 
         console.log('Sending update data:', updateData)

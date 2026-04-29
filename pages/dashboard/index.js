@@ -864,6 +864,7 @@ function ITAdminTab({ member }) {
             }
         }
     }
+
     // Announcement Modal Component
     const AnnouncementModal = () => {
         const allCommands = ['All Commands', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
@@ -923,25 +924,42 @@ function ITAdminTab({ member }) {
             setSubmitting(false)
         }
 
+        // Add these functions inside ITAdminTab component
+
         const handleDeleteAnnouncement = async (id) => {
             if (confirm('Delete this announcement? This action cannot be undone.')) {
                 try {
                     const response = await fetch('/api/delete_announcement.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id })
+                        body: JSON.stringify({ id: id })
                     })
+
                     const data = await response.json()
+                    console.log('Delete response:', data)
+
                     if (data.success) {
-                        alert('Announcement deleted')
+                        alert('Announcement deleted successfully!')
                         loadAnnouncements()
                     } else {
-                        alert(data.error || 'Failed to delete')
+                        alert(data.error || 'Failed to delete announcement')
                     }
                 } catch (error) {
-                    alert('Network error')
+                    console.error('Error deleting announcement:', error)
+                    alert('Network error: ' + error.message)
                 }
             }
+        }
+
+        const handleEditAnnouncement = (announcement) => {
+            setEditingAnnouncement(announcement)
+            setAnnouncementForm({
+                title: announcement.title,
+                content: announcement.content,
+                target_command: announcement.target_command || '',
+                is_pinned: announcement.is_pinned
+            })
+            setShowAnnouncementModal(true)
         }
 
         const handlePinAnnouncement = async (id, currentPinned) => {
@@ -949,17 +967,85 @@ function ITAdminTab({ member }) {
                 const response = await fetch('/api/pin_announcement.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, is_pinned: currentPinned ? 0 : 1 })
+                    body: JSON.stringify({
+                        id: id,
+                        is_pinned: currentPinned ? 0 : 1
+                    })
                 })
+
                 const data = await response.json()
+                console.log('Pin response:', data)
+
                 if (data.success) {
+                    alert(currentPinned ? 'Announcement unpinned!' : 'Announcement pinned!')
                     loadAnnouncements()
                 } else {
-                    alert(data.error || 'Failed to pin announcement')
+                    alert(data.error || 'Failed to update pin status')
                 }
             } catch (error) {
-                alert('Network error')
+                console.error('Error pinning announcement:', error)
+                alert('Network error: ' + error.message)
             }
+        }
+
+        const handleSaveAnnouncement = async () => {
+            if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
+                alert('Please enter both title and content')
+                return
+            }
+
+            setSubmitting(true)
+            try {
+                let url, body
+
+                if (editingAnnouncement) {
+                    // Update existing announcement
+                    url = '/api/update_announcement.php'
+                    body = {
+                        id: editingAnnouncement.id,
+                        title: announcementForm.title,
+                        content: announcementForm.content,
+                        target_command: announcementForm.target_command || null,
+                        is_pinned: announcementForm.is_pinned ? 1 : 0
+                    }
+                } else {
+                    // Create new announcement
+                    url = '/api/add_announcement.php'
+                    body = {
+                        title: announcementForm.title,
+                        content: announcementForm.content,
+                        author: `${member?.first_name} ${member?.last_name}`,
+                        author_role: member?.role,
+                        target_command: announcementForm.target_command || null,
+                        is_pinned: announcementForm.is_pinned ? 1 : 0
+                    }
+                }
+
+                console.log('Saving announcement:', body)
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                })
+
+                const data = await response.json()
+                console.log('Save response:', data)
+
+                if (data.success) {
+                    alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
+                    loadAnnouncements()
+                    setShowAnnouncementModal(false)
+                    setEditingAnnouncement(null)
+                    setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+                } else {
+                    alert(data.error || 'Failed to save announcement')
+                }
+            } catch (error) {
+                console.error('Error saving announcement:', error)
+                alert('Network error: ' + error.message)
+            }
+            setSubmitting(false)
         }
 
         return (
@@ -1245,60 +1331,52 @@ function ITAdminTab({ member }) {
                         </button>
                     </div>
 
-                    {/* Announcements List */}
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
                         {announcements.length === 0 ? (
                             <p className="text-gray-500 text-center py-8">No announcements yet</p>
                         ) : (
                             announcements.map(announcement => (
-                                <div key={announcement.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                                <div key={announcement.id} className={`border rounded-lg p-4 ${announcement.is_pinned == 1 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex items-center gap-2 flex-wrap mb-2">
                                                 <h4 className="font-bold text-gray-800">{announcement.title}</h4>
                                                 {announcement.is_pinned == 1 && (
-                                                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">📌 Pinned</span>
+                                                    <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">📌 Pinned</span>
                                                 )}
                                                 {announcement.target_command && (
-                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
                                                         Target: {announcement.target_command}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-sm text-gray-600 mt-2">{announcement.content}</p>
-                                            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-400">
-                                                <span>By: {announcement.author || 'Unknown'}</span>
-                                                <span>📅 {formatDate(announcement.created_at)}</span>
+                                            <p className="text-gray-600 mb-3">{announcement.content}</p>
+                                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                <span>By: {announcement.author} ({announcement.author_role})</span>
+                                                <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2 ml-4">
+                                        <div className="flex gap-2 ml-4">
                                             <button
                                                 onClick={() => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1)}
-                                                className={`text-sm px-2 py-1 rounded ${announcement.is_pinned == 1 ? 'text-yellow-600 hover:text-yellow-700' : 'text-gray-500 hover:text-yellow-600'}`}
+                                                className={`p-2 rounded-lg transition ${announcement.is_pinned == 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                                 title={announcement.is_pinned == 1 ? 'Unpin' : 'Pin'}
                                             >
                                                 📌
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    setEditingAnnouncement(announcement)
-                                                    setAnnouncementForm({
-                                                        title: announcement.title,
-                                                        content: announcement.content,
-                                                        target_command: announcement.target_command || '',
-                                                        is_pinned: announcement.is_pinned == 1 ? 1 : 0
-                                                    })
-                                                    setShowAnnouncementModal(true)
-                                                }}
-                                                className="text-blue-600 text-sm hover:underline"
+                                                onClick={() => handleEditAnnouncement(announcement)}
+                                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
+                                                title="Edit"
                                             >
-                                                Edit
+                                                ✏️
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteAnnouncement(announcement.id)}
-                                                className="text-red-600 text-sm hover:underline"
+                                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                                                title="Delete"
                                             >
-                                                Delete
+                                                🗑️
                                             </button>
                                         </div>
                                     </div>

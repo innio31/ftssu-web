@@ -558,49 +558,72 @@ function ProfileTab({ member, onUpdate }) {
     }
 
     const handleUpdateProfile = async () => {
+        // Validate phone number only if it has content
         if (editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0) {
             alert('Phone number must be exactly 11 digits')
             return
         }
 
-        // Build update data - only include fields that have changed
+        // Build update data - only include fields that have changed and have value
         const updateData = { id: member.id }
         let hasChanges = false
 
-        if (editedData.phone_number !== profile?.phone_number) {
+        // Log current values for debugging
+        console.log('Current profile:', {
+            phone: profile?.phone_number,
+            email: profile?.email,
+            dob: profile?.date_of_birth
+        })
+        console.log('Edited data:', editedData)
+
+        if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) {
             updateData.phone_number = editedData.phone_number
             hasChanges = true
+            console.log('Phone changed to:', editedData.phone_number)
         }
 
         if (editedData.email !== profile?.email) {
             updateData.email = editedData.email
             hasChanges = true
+            console.log('Email changed to:', editedData.email)
         }
 
-        if (editedData.date_of_birth !== profile?.date_of_birth) {
+        if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) {
             updateData.date_of_birth = editedData.date_of_birth
             hasChanges = true
+            console.log('DOB changed to:', editedData.date_of_birth)
         }
 
         if (!hasChanges) {
-            alert('No changes to update')
+            alert('No changes detected. Please modify a field before saving.')
             setEditing(false)
             return
         }
 
+        console.log('Sending update data:', updateData)
         setLoading(true)
 
         try {
-            console.log('Sending update data:', updateData)
-
             const response = await fetch('/api/update_member.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData),
             })
 
-            const data = await response.json()
-            console.log('Update response:', data)
+            const textResponse = await response.text()
+            console.log('Raw response:', textResponse)
+
+            let data
+            try {
+                data = JSON.parse(textResponse)
+            } catch (e) {
+                console.error('JSON parse error:', e)
+                alert('Server returned invalid response. Check console for details.')
+                setLoading(false)
+                return
+            }
+
+            console.log('Parsed response:', data)
 
             if (data.success) {
                 const updatedMember = { ...profile, ...updateData }
@@ -614,7 +637,7 @@ function ProfileTab({ member, onUpdate }) {
             }
         } catch (error) {
             console.error('Update error:', error)
-            alert('Network error. Please try again.')
+            alert('Network error: ' + error.message)
         }
         setLoading(false)
     }
@@ -789,14 +812,26 @@ function ITAdminTab({ member }) {
                 const response = await fetch('/api/update_service.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: serviceId, is_active: 0 })
+                    body: JSON.stringify({
+                        id: serviceId,
+                        is_active: 0,
+                        service_name: '',  // Required by your API
+                        service_date: '',  // Required by your API
+                        start_time: '',    // Required by your API
+                        end_time: ''       // Required by your API
+                    })
                 })
                 const data = await response.json()
                 if (data.success) {
-                    alert('Service closed')
+                    alert('Service closed successfully')
                     loadServices()
-                } else { alert(data.error) }
-            } catch (error) { alert('Network error') }
+                } else {
+                    alert(data.error || 'Failed to close service')
+                }
+            } catch (error) {
+                console.error('Error closing service:', error)
+                alert('Network error: ' + error.message)
+            }
         }
     }
 

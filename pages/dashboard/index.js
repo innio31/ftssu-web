@@ -3,6 +3,8 @@ import { useRouter } from 'next/router'
 import ImageUploadModal from '../../components/ImageUploadModal'
 import AttendanceModal from '../../components/AttendanceModal'
 import AttendanceReportModal from '../../components/AttendanceReportModal'
+import MemberDetailsModal from '../../components/MemberDetailsModal'
+import CreateServiceModal from '../../components/CreateServiceModal'
 
 export default function Dashboard() {
     const router = useRouter()
@@ -20,7 +22,6 @@ export default function Dashboard() {
         const memberData = JSON.parse(stored)
         setMember(memberData)
 
-        // Load announcements
         fetchAnnouncements()
 
         setLoading(false)
@@ -102,73 +103,26 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Main Content - Announcements First */}
+            {/* Main Content */}
             <div className="p-4">
                 {activeTab === 'announcements' && (
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                            <span>📢</span> Announcements
-                        </h2>
-                        {announcements.length === 0 ? (
-                            <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                                <p className="text-gray-500">No announcements yet</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {announcements.map((announcement) => (
-                                    <div
-                                        key={announcement.id}
-                                        className={`bg-white rounded-xl shadow-md overflow-hidden ${announcement.is_pinned == 1 ? 'border-l-4 border-l-red-600' : ''
-                                            }`}
-                                    >
-                                        {announcement.is_pinned == 1 && (
-                                            <div className="bg-yellow-50 px-4 py-1 border-b border-yellow-200">
-                                                <span className="text-xs text-red-600 font-semibold">📌 PINNED</span>
-                                            </div>
-                                        )}
-                                        <div className="p-5">
-                                            <h3 className="font-bold text-lg text-gray-800 mb-2">{announcement.title}</h3>
-                                            <p className="text-gray-600 leading-relaxed mb-3">{announcement.content}</p>
-                                            <div className="flex justify-between items-center text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <div
-                                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                                        style={{ backgroundColor: getRoleColor(announcement.author_role) }}
-                                                    >
-                                                        {announcement.author?.[0]}
-                                                    </div>
-                                                    <span className="text-gray-500">{announcement.author} ({announcement.author_role})</span>
-                                                </div>
-                                                <span className="text-gray-400 text-xs">{formatDate(announcement.created_at)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} />
                 )}
-
-                {/* Store Tab - Full functionality */}
                 {activeTab === 'store' && (
                     <StoreTab member={member} />
                 )}
-
+                {activeTab === 'orders' && (
+                    <OrdersTab member={member} />
+                )}
                 {activeTab === 'profile' && (
                     <ProfileTab member={member} onUpdate={(updatedMember) => {
                         setMember(updatedMember)
                         localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
                     }} />
                 )}
-
-                {activeTab === 'orders' && (
-                    <OrdersTab member={member} />
-                )}
-
                 {activeTab === 'attendance' && (
                     <AttendanceTab member={member} />
                 )}
-
                 {activeTab === 'itadmin' && (
                     <ITAdminTab member={member} />
                 )}
@@ -209,8 +163,14 @@ export default function Dashboard() {
                         <span className="text-2xl">📅</span>
                         <span className="text-xs mt-1 font-medium">Attendance</span>
                     </button>
-
-                    {/* Admin Button - Conditional */}
+                    <button
+                        onClick={() => setActiveTab('profile')}
+                        className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'profile' ? 'text-red-600' : 'text-gray-500'
+                            }`}
+                    >
+                        <span className="text-2xl">👤</span>
+                        <span className="text-xs mt-1 font-medium">Profile</span>
+                    </button>
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
                         <button
                             onClick={() => setActiveTab('itadmin')}
@@ -221,15 +181,6 @@ export default function Dashboard() {
                             <span className="text-xs mt-1 font-medium">Admin</span>
                         </button>
                     )}
-
-                    <button
-                        onClick={() => setActiveTab('profile')}
-                        className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'profile' ? 'text-red-600' : 'text-gray-500'
-                            }`}
-                    >
-                        <span className="text-2xl">👤</span>
-                        <span className="text-xs mt-1 font-medium">Profile</span>
-                    </button>
                 </div>
             </div>
         </div>

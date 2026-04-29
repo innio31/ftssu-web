@@ -532,9 +532,21 @@ function ITAdminTab({ member }) {
     const [selectedMember, setSelectedMember] = useState(null)
     const [showCreateService, setShowCreateService] = useState(false)
 
+    // Announcements state
+    const [announcements, setAnnouncements] = useState([])
+    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
+    const [editingAnnouncement, setEditingAnnouncement] = useState(null)
+    const [announcementForm, setAnnouncementForm] = useState({
+        title: '',
+        content: '',
+        target_command: '',
+        is_pinned: 0
+    })
+    const [submitting, setSubmitting] = useState(false)
+
     const commands = ['All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G']
 
-    useEffect(() => { loadMembers(); loadServices() }, [])
+    useEffect(() => { loadMembers(); loadServices(); loadAnnouncements() }, [])
     useEffect(() => { filterMembers() }, [members, selectedCommand, searchTerm])
 
     const loadMembers = async () => {
@@ -552,6 +564,18 @@ function ITAdminTab({ member }) {
             const data = await response.json()
             if (data.success) setServices(data.services || [])
         } catch (error) { console.error(error) }
+    }
+
+    const loadAnnouncements = async () => {
+        try {
+            const response = await fetch('/api/get_announcements.php')
+            const data = await response.json()
+            if (data.success && data.announcements) {
+                setAnnouncements(data.announcements)
+            }
+        } catch (error) {
+            console.error('Error loading announcements:', error)
+        }
     }
 
     const filterMembers = () => {
@@ -588,6 +612,200 @@ function ITAdminTab({ member }) {
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
     const activeServicesCount = services.filter(s => s.is_active == 1).length
 
+    // Announcement Modal Component
+    const AnnouncementModal = () => {
+        const allCommands = ['All Commands', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
+            'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5',
+            'Command 1', 'Command 2', 'Command 3', 'Command 4', 'Command 5', 'Command 6', 'Command 7',
+            'Command 8', 'Command 9', 'Command 10', 'Command 11', 'Command 12', 'Command 13', 'Command 14',
+            'Command 15', 'Command 16', 'Command 17', 'Command 18', 'Command 19', 'Command 20', 'Command 21',
+            'Command 22', 'VETERAN', 'KHMS', 'COVENANT DAY', 'RECRUITMENT & TRAINING', 'SID', 'PATROL',
+            'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING']
+
+        const handleSubmit = async () => {
+            if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
+                alert('Please enter both title and content')
+                return
+            }
+
+            setSubmitting(true)
+            try {
+                const url = editingAnnouncement ? '/api/update_announcement.php' : '/api/add_announcement.php'
+                const body = editingAnnouncement
+                    ? {
+                        id: editingAnnouncement.id,
+                        title: announcementForm.title,
+                        content: announcementForm.content,
+                        target_command: announcementForm.target_command || null,
+                        is_pinned: announcementForm.is_pinned ? 1 : 0
+                    }
+                    : {
+                        title: announcementForm.title,
+                        content: announcementForm.content,
+                        author: `${member?.first_name} ${member?.last_name}`,
+                        author_role: member?.role,
+                        target_command: announcementForm.target_command || null,
+                        is_pinned: announcementForm.is_pinned ? 1 : 0
+                    }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                })
+                const data = await response.json()
+
+                if (data.success) {
+                    alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement posted!')
+                    loadAnnouncements()
+                    setShowAnnouncementModal(false)
+                    setEditingAnnouncement(null)
+                    setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+                } else {
+                    alert(data.error || 'Failed to save announcement')
+                }
+            } catch (error) {
+                console.error('Error:', error)
+                alert('Network error')
+            }
+            setSubmitting(false)
+        }
+
+        const handleDeleteAnnouncement = async (id) => {
+            if (confirm('Delete this announcement? This action cannot be undone.')) {
+                try {
+                    const response = await fetch('/api/delete_announcement.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    })
+                    const data = await response.json()
+                    if (data.success) {
+                        alert('Announcement deleted')
+                        loadAnnouncements()
+                    } else {
+                        alert(data.error || 'Failed to delete')
+                    }
+                } catch (error) {
+                    alert('Network error')
+                }
+            }
+        }
+
+        const handlePinAnnouncement = async (id, currentPinned) => {
+            try {
+                const response = await fetch('/api/pin_announcement.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, is_pinned: currentPinned ? 0 : 1 })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    loadAnnouncements()
+                } else {
+                    alert(data.error || 'Failed to pin announcement')
+                }
+            } catch (error) {
+                alert('Network error')
+            }
+        }
+
+        return (
+            <>
+                {/* Announcement Modal */}
+                {showAnnouncementModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
+                        setShowAnnouncementModal(false)
+                        setEditingAnnouncement(null)
+                        setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+                    }}>
+                        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-gray-800">
+                                    {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
+                                </h2>
+                                <button onClick={() => {
+                                    setShowAnnouncementModal(false)
+                                    setEditingAnnouncement(null)
+                                }} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Title *</label>
+                                    <input
+                                        type="text"
+                                        value={announcementForm.title}
+                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                                        placeholder="Announcement title"
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Content *</label>
+                                    <textarea
+                                        value={announcementForm.content}
+                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
+                                        placeholder="Announcement content..."
+                                        rows="5"
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Target Command (Optional)</label>
+                                    <select
+                                        value={announcementForm.target_command}
+                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, target_command: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    >
+                                        {allCommands.map(cmd => (
+                                            <option key={cmd} value={cmd === 'All Commands' ? '' : cmd}>{cmd}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">Leave empty to show to all commands</p>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={announcementForm.is_pinned === 1}
+                                            onChange={(e) => setAnnouncementForm({ ...announcementForm, is_pinned: e.target.checked ? 1 : 0 })}
+                                            className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                        />
+                                        <span className="text-sm font-semibold text-gray-700">Pin this announcement</span>
+                                    </label>
+                                    <span className="text-xs text-gray-500">Pinned announcements appear at the top</span>
+                                </div>
+                            </div>
+
+                            <div className="border-t p-4 flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowAnnouncementModal(false)
+                                        setEditingAnnouncement(null)
+                                    }}
+                                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={submitting}
+                                    className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {submitting ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Post Announcement')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
+        )
+    }
+
     if (loading) return <div className="text-center py-8">Loading...</div>
 
     return (
@@ -595,24 +813,33 @@ function ITAdminTab({ member }) {
             <h2 className="text-xl font-bold text-gray-800 mb-4">⚙️ Admin Dashboard</h2>
 
             {/* Admin Subtabs */}
-            <div className="flex gap-2 mb-6 border-b pb-2">
+            <div className="flex gap-2 mb-6 border-b pb-2 overflow-x-auto">
                 <button
                     onClick={() => setAdminSubTab('services')}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${adminSubTab === 'services'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'services'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     📅 Service Management
                 </button>
                 <button
                     onClick={() => setAdminSubTab('members')}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${adminSubTab === 'members'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'members'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     👥 Members Management
+                </button>
+                <button
+                    onClick={() => setAdminSubTab('announcements')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'announcements'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                >
+                    📢 Announcements
                 </button>
             </div>
 
@@ -740,6 +967,87 @@ function ITAdminTab({ member }) {
                 </div>
             )}
 
+            {/* Announcements Management Subtab */}
+            {adminSubTab === 'announcements' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-gray-800 text-lg">Announcements Management</h3>
+                        <button
+                            onClick={() => {
+                                setEditingAnnouncement(null)
+                                setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+                                setShowAnnouncementModal(true)
+                            }}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                        >
+                            + New Announcement
+                        </button>
+                    </div>
+
+                    {/* Announcements List */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {announcements.length === 0 ? (
+                            <p className="text-gray-500 text-center py-8">No announcements yet</p>
+                        ) : (
+                            announcements.map(announcement => (
+                                <div key={announcement.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h4 className="font-bold text-gray-800">{announcement.title}</h4>
+                                                {announcement.is_pinned == 1 && (
+                                                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">📌 Pinned</span>
+                                                )}
+                                                {announcement.target_command && (
+                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                                        Target: {announcement.target_command}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-600 mt-2">{announcement.content}</p>
+                                            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-400">
+                                                <span>By: {announcement.author || 'Unknown'}</span>
+                                                <span>📅 {formatDate(announcement.created_at)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 ml-4">
+                                            <button
+                                                onClick={() => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1)}
+                                                className={`text-sm px-2 py-1 rounded ${announcement.is_pinned == 1 ? 'text-yellow-600 hover:text-yellow-700' : 'text-gray-500 hover:text-yellow-600'}`}
+                                                title={announcement.is_pinned == 1 ? 'Unpin' : 'Pin'}
+                                            >
+                                                📌
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setEditingAnnouncement(announcement)
+                                                    setAnnouncementForm({
+                                                        title: announcement.title,
+                                                        content: announcement.content,
+                                                        target_command: announcement.target_command || '',
+                                                        is_pinned: announcement.is_pinned == 1 ? 1 : 0
+                                                    })
+                                                    setShowAnnouncementModal(true)
+                                                }}
+                                                className="text-blue-600 text-sm hover:underline"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteAnnouncement(announcement.id)}
+                                                className="text-red-600 text-sm hover:underline"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Modals */}
             <MemberDetailsModal
                 isOpen={!!selectedMember}
@@ -760,6 +1068,9 @@ function ITAdminTab({ member }) {
                 }}
                 activeServicesCount={activeServicesCount}
             />
+
+            {/* Announcement Modal */}
+            <AnnouncementModal />
         </div>
     )
 }

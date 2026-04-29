@@ -797,19 +797,29 @@ function ITAdminTab({ member }) {
     const closeService = async (serviceId) => {
         if (confirm('Close this service? Attendance can no longer be taken.')) {
             try {
+                console.log('Closing service:', serviceId)
+
                 const response = await fetch('/api/update_service.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         id: serviceId,
-                        is_active: 0,
-                        service_name: '',  // Required by your API
-                        service_date: '',  // Required by your API
-                        start_time: '',    // Required by your API
-                        end_time: ''       // Required by your API
+                        is_active: 0
                     })
                 })
-                const data = await response.json()
+
+                const textResponse = await response.text()
+                console.log('Raw response:', textResponse)
+
+                let data
+                try {
+                    data = JSON.parse(textResponse)
+                } catch (e) {
+                    console.error('JSON parse error:', e)
+                    alert('Server returned invalid response: ' + textResponse.substring(0, 100))
+                    return
+                }
+
                 if (data.success) {
                     alert('Service closed successfully')
                     loadServices()

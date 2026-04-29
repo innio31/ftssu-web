@@ -25,3 +25,28 @@
         @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
     }
 }
+
+/* Ensure content doesn't hide behind bottom navigation */
+body {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Better scroll behavior */
+.overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: #cc0000 #f1f1f1;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+    background: #cc0000;
+    border-radius: 10px;
+}

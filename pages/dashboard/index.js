@@ -748,7 +748,11 @@ function ITAdminTab({ member }) {
 
     const commands = ['All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G']
 
-    useEffect(() => { loadMembers(); loadServices(); loadAnnouncements() }, [])
+    useEffect(() => {
+        loadMembers()
+        loadServices()
+        loadAnnouncements()  // Add this line
+    }, [])
     useEffect(() => { filterMembers() }, [members, selectedCommand, searchTerm])
 
     const loadMembers = async () => {
@@ -926,7 +930,8 @@ function ITAdminTab({ member }) {
 
         // Add these functions inside ITAdminTab component
 
-        const handleDeleteAnnouncement = async (id) => {
+        const handleDeleteAnnouncement = async (id, e) => {
+            e.stopPropagation()
             if (confirm('Delete this announcement? This action cannot be undone.')) {
                 try {
                     const response = await fetch('/api/delete_announcement.php', {
@@ -951,18 +956,20 @@ function ITAdminTab({ member }) {
             }
         }
 
-        const handleEditAnnouncement = (announcement) => {
+        const handleEditAnnouncement = (announcement, e) => {
+            e.stopPropagation()
             setEditingAnnouncement(announcement)
             setAnnouncementForm({
-                title: announcement.title,
-                content: announcement.content,
+                title: announcement.title || '',
+                content: announcement.content || '',
                 target_command: announcement.target_command || '',
-                is_pinned: announcement.is_pinned
+                is_pinned: announcement.is_pinned || 0
             })
             setShowAnnouncementModal(true)
         }
 
-        const handlePinAnnouncement = async (id, currentPinned) => {
+        const handlePinAnnouncement = async (id, currentPinned, e) => {
+            e.stopPropagation()
             try {
                 const response = await fetch('/api/pin_announcement.php', {
                     method: 'POST',
@@ -999,7 +1006,6 @@ function ITAdminTab({ member }) {
                 let url, body
 
                 if (editingAnnouncement) {
-                    // Update existing announcement
                     url = '/api/update_announcement.php'
                     body = {
                         id: editingAnnouncement.id,
@@ -1009,7 +1015,6 @@ function ITAdminTab({ member }) {
                         is_pinned: announcementForm.is_pinned ? 1 : 0
                     }
                 } else {
-                    // Create new announcement
                     url = '/api/add_announcement.php'
                     body = {
                         title: announcementForm.title,
@@ -1358,23 +1363,26 @@ function ITAdminTab({ member }) {
                                         </div>
                                         <div className="flex gap-2 ml-4">
                                             <button
-                                                onClick={() => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1)}
+                                                onClick={(e) => handlePinAnnouncement(announcement.id, announcement.is_pinned == 1, e)}
                                                 className={`p-2 rounded-lg transition ${announcement.is_pinned == 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                                 title={announcement.is_pinned == 1 ? 'Unpin' : 'Pin'}
+                                                type="button"
                                             >
                                                 📌
                                             </button>
                                             <button
-                                                onClick={() => handleEditAnnouncement(announcement)}
+                                                onClick={(e) => handleEditAnnouncement(announcement, e)}
                                                 className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
                                                 title="Edit"
+                                                type="button"
                                             >
                                                 ✏️
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteAnnouncement(announcement.id)}
+                                                onClick={(e) => handleDeleteAnnouncement(announcement.id, e)}
                                                 className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
                                                 title="Delete"
+                                                type="button"
                                             >
                                                 🗑️
                                             </button>
@@ -1383,6 +1391,115 @@ function ITAdminTab({ member }) {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Announcement Modal - Move outside the main div */}
+            {showAnnouncementModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                        setShowAnnouncementModal(false)
+                        setEditingAnnouncement(null)
+                    }
+                }}>
+                    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-800">
+                                {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    setShowAnnouncementModal(false)
+                                    setEditingAnnouncement(null)
+                                }}
+                                className="text-gray-500 text-2xl hover:text-gray-700"
+                                type="button"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Title *</label>
+                                <input
+                                    type="text"
+                                    value={announcementForm.title}
+                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                                    placeholder="Announcement title"
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Content *</label>
+                                <textarea
+                                    value={announcementForm.content}
+                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
+                                    placeholder="Announcement content..."
+                                    rows="5"
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Target Command (Optional)</label>
+                                <select
+                                    value={announcementForm.target_command}
+                                    onChange={(e) => setAnnouncementForm({ ...announcementForm, target_command: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                >
+                                    <option value="">All Commands</option>
+                                    {['UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
+                                        'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5',
+                                        'Command 1', 'Command 2', 'Command 3', 'Command 4', 'Command 5', 'Command 6', 'Command 7',
+                                        'Command 8', 'Command 9', 'Command 10', 'Command 11', 'Command 12', 'Command 13', 'Command 14',
+                                        'Command 15', 'Command 16', 'Command 17', 'Command 18', 'Command 19', 'Command 20', 'Command 21',
+                                        'Command 22', 'VETERAN', 'KHMS', 'COVENANT DAY', 'RECRUITMENT & TRAINING', 'SID', 'PATROL',
+                                        'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'
+                                    ].map(cmd => (
+                                        <option key={cmd} value={cmd}>{cmd}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={announcementForm.is_pinned === 1}
+                                        onChange={(e) => setAnnouncementForm({ ...announcementForm, is_pinned: e.target.checked ? 1 : 0 })}
+                                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                    />
+                                    <span className="text-sm font-semibold text-gray-700">Pin this announcement</span>
+                                </label>
+                                <span className="text-xs text-gray-500">Pinned announcements appear at the top</span>
+                            </div>
+                        </div>
+
+                        <div className="border-t p-4 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowAnnouncementModal(false)
+                                    setEditingAnnouncement(null)
+                                }}
+                                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveAnnouncement}
+                                disabled={submitting}
+                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                                type="button"
+                            >
+                                {submitting ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Post Announcement')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

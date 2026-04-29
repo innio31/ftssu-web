@@ -109,6 +109,9 @@ export default function Dashboard() {
                 }} />}
                 {activeTab === 'attendance' && <AttendanceTab member={member} />}
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
+                {activeTab === 'acctadmin' && (
+                    <AcctAdminTab member={member} />
+                )}
             </div>
 
             {/* Bottom Navigation - Grid Layout */}
@@ -126,10 +129,12 @@ export default function Dashboard() {
                         <span className="text-xl">📋</span>
                         <span className="text-xs mt-1 font-medium">Orders</span>
                     </button>
-                    <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-xl">📅</span>
-                        <span className="text-xs mt-1 font-medium">Attendance</span>
-                    </button>
+                    {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Secretary') && (
+                        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-xl">📅</span>
+                            <span className="text-xs mt-1 font-medium">Attendance</span>
+                        </button>
+                    )}
                     <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'profile' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">👤</span>
                         <span className="text-xs mt-1 font-medium">Profile</span>
@@ -138,6 +143,13 @@ export default function Dashboard() {
                         <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">⚙️</span>
                             <span className="text-xs mt-1 font-medium">Admin</span>
+                        </button>
+                    )}
+                    {/* Acct Admin Tab - For Accountant and Acct Admin roles */}
+                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'Admin') && (
+                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-2xl">💰</span>
+                            <span className="text-xs mt-1 font-medium">Accounts</span>
                         </button>
                     )}
                 </div>
@@ -817,8 +829,8 @@ function ITAdminTab({ member }) {
                 <button
                     onClick={() => setAdminSubTab('services')}
                     className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'services'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     📅 Service Management
@@ -826,8 +838,8 @@ function ITAdminTab({ member }) {
                 <button
                     onClick={() => setAdminSubTab('members')}
                     className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'members'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     👥 Members Management
@@ -835,8 +847,8 @@ function ITAdminTab({ member }) {
                 <button
                     onClick={() => setAdminSubTab('announcements')}
                     className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'announcements'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     📢 Announcements
@@ -1071,6 +1083,353 @@ function ITAdminTab({ member }) {
 
             {/* Announcement Modal */}
             <AnnouncementModal />
+        </div>
+    )
+}
+
+// ============= ACCT ADMIN TAB - Product Management =============
+function AcctAdminTab({ member }) {
+    const [products, setProducts] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [showProductModal, setShowProductModal] = useState(false)
+    const [editingProduct, setEditingProduct] = useState(null)
+    const [productForm, setProductForm] = useState({
+        name: '',
+        price: '',
+        description: '',
+        has_custom_price: 0,
+        sort_order: 0
+    })
+    const [submitting, setSubmitting] = useState(false)
+    const [sortableList, setSortableList] = useState(null)
+
+    useEffect(() => {
+        loadProducts()
+    }, [])
+
+    const loadProducts = async () => {
+        try {
+            const response = await fetch('/api/get_products.php')
+            const data = await response.json()
+            if (data.success) {
+                setProducts(data.products || [])
+            }
+        } catch (error) {
+            console.error('Error loading products:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const formatPrice = (price) => `₦${Number(price).toLocaleString()}`
+
+    const handleSaveProduct = async () => {
+        if (!productForm.name.trim()) {
+            alert('Please enter product name')
+            return
+        }
+
+        setSubmitting(true)
+        try {
+            const url = editingProduct ? '/api/update_product.php' : '/api/add_product.php'
+            const body = editingProduct
+                ? {
+                    id: editingProduct.id,
+                    name: productForm.name,
+                    price: productForm.price,
+                    description: productForm.description,
+                    has_custom_price: productForm.has_custom_price ? 1 : 0,
+                    sort_order: productForm.sort_order
+                }
+                : {
+                    name: productForm.name,
+                    price: productForm.price,
+                    description: productForm.description,
+                    has_custom_price: productForm.has_custom_price ? 1 : 0,
+                    sort_order: productForm.sort_order
+                }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            const data = await response.json()
+
+            if (data.success) {
+                alert(editingProduct ? 'Product updated!' : 'Product added!')
+                loadProducts()
+                setShowProductModal(false)
+                setEditingProduct(null)
+                resetProductForm()
+            } else {
+                alert(data.error || 'Failed to save product')
+            }
+        } catch (error) {
+            console.error('Error:', error)
+            alert('Network error')
+        }
+        setSubmitting(false)
+    }
+
+    const handleDeleteProduct = async (id, name) => {
+        if (confirm(`Delete "${name}"? This action cannot be undone.`)) {
+            try {
+                const response = await fetch('/api/delete_product.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Product deleted')
+                    loadProducts()
+                } else {
+                    alert(data.error || 'Failed to delete')
+                }
+            } catch (error) {
+                alert('Network error')
+            }
+        }
+    }
+
+    const resetProductForm = () => {
+        setProductForm({
+            name: '',
+            price: '',
+            description: '',
+            has_custom_price: 0,
+            sort_order: 0
+        })
+    }
+
+    const openAddModal = () => {
+        setEditingProduct(null)
+        resetProductForm()
+        setShowProductModal(true)
+    }
+
+    const openEditModal = (product) => {
+        setEditingProduct(product)
+        setProductForm({
+            name: product.name,
+            price: product.price,
+            description: product.description || '',
+            has_custom_price: product.has_custom_price || 0,
+            sort_order: product.sort_order || 0
+        })
+        setShowProductModal(true)
+    }
+
+    // Initialize SortableJS after products load
+    useEffect(() => {
+        if (!loading && products.length > 0 && typeof Sortable !== 'undefined') {
+            const list = document.getElementById('sortable-products-list')
+            if (list && !sortableList) {
+                const sortable = new Sortable(list, {
+                    animation: 300,
+                    handle: '.drag-handle',
+                    ghostClass: 'dragging',
+                    onEnd: () => updatePositionBadges()
+                })
+                setSortableList(sortable)
+            }
+        }
+    }, [loading, products])
+
+    const updatePositionBadges = () => {
+        const items = document.querySelectorAll('#sortable-products-list .sortable-item')
+        items.forEach((item, index) => {
+            const badge = item.querySelector('.drag-badge')
+            if (badge) {
+                badge.textContent = '#' + (index + 1)
+            }
+        })
+    }
+
+    const saveProductOrder = async () => {
+        const items = document.querySelectorAll('#sortable-products-list .sortable-item')
+        const orderData = []
+        items.forEach((item, index) => {
+            orderData.push({
+                id: parseInt(item.dataset.id),
+                sort_order: index
+            })
+        })
+
+        try {
+            const response = await fetch('/api/update_product_order.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ products: orderData })
+            })
+            const data = await response.json()
+            if (data.success) {
+                alert('Product order saved!')
+                loadProducts()
+            } else {
+                alert(data.error || 'Failed to save order')
+            }
+        } catch (error) {
+            alert('Network error')
+        }
+    }
+
+    if (loading) {
+        return <div className="text-center py-8">Loading products...</div>
+    }
+
+    return (
+        <div className="pb-24">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">💰 Account Admin Dashboard</h2>
+
+            <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                    <h3 className="font-bold text-gray-800 text-lg">Product Management</h3>
+                    <button
+                        onClick={openAddModal}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    >
+                        + Add Product
+                    </button>
+                </div>
+
+                <div className="reorder-notice mb-4">
+                    🔄 <strong>Drag and Drop to Reorder Products</strong> - Drag the ☰ icon to rearrange. Click "Save Order" when done.
+                </div>
+
+                {/* Sortable Products List */}
+                <ul id="sortable-products-list" className="space-y-2 mb-4">
+                    {products.map((product, index) => (
+                        <li key={product.id} className="sortable-item bg-gray-50 border rounded-lg p-4 flex flex-wrap justify-between items-center gap-3" data-id={product.id}>
+                            <div className="flex items-center gap-3 flex-1 flex-wrap">
+                                <span className="drag-handle cursor-grab text-gray-400 text-xl">☰</span>
+                                <span className="drag-badge bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">#{index + 1}</span>
+                                <strong className="text-gray-800">{product.name}</strong>
+                                <span className="text-red-600 font-bold">{formatPrice(product.price)}</span>
+                                {product.has_custom_price == 1 && (
+                                    <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-full text-xs">💝 Custom Price</span>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => openEditModal(product)} className="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-yellow-600">
+                                    ✏️ Edit
+                                </button>
+                                <button onClick={() => handleDeleteProduct(product.id, product.name)} className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+
+                {products.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No products available. Add your first product!</p>
+                )}
+
+                {products.length > 0 && (
+                    <div className="text-right">
+                        <button onClick={saveProductOrder} className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700">
+                            💾 Save Product Order
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Product Modal */}
+            {showProductModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
+                    setShowProductModal(false)
+                    setEditingProduct(null)
+                }}>
+                    <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b p-4 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
+                            <button onClick={() => {
+                                setShowProductModal(false)
+                                setEditingProduct(null)
+                            }} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Product Name *</label>
+                                <input
+                                    type="text"
+                                    value={productForm.name}
+                                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                                    placeholder="e.g., Long Tie, Scarf"
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Price (₦)</label>
+                                <input
+                                    type="number"
+                                    value={productForm.price}
+                                    onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                                    placeholder="0"
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Description (Optional)</label>
+                                <textarea
+                                    value={productForm.description}
+                                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                                    rows="3"
+                                    placeholder="Product description..."
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={productForm.has_custom_price === 1}
+                                        onChange={(e) => setProductForm({ ...productForm, has_custom_price: e.target.checked ? 1 : 0 })}
+                                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                    />
+                                    <span className="text-sm font-semibold text-gray-700">Custom Price (Love Seed - user enters any amount)</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Sort Order</label>
+                                <input
+                                    type="number"
+                                    value={productForm.sort_order}
+                                    onChange={(e) => setProductForm({ ...productForm, sort_order: parseInt(e.target.value) || 0 })}
+                                    placeholder="0"
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="border-t p-4 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowProductModal(false)
+                                    setEditingProduct(null)
+                                }}
+                                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveProduct}
+                                disabled={submitting}
+                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {submitting ? 'Saving...' : (editingProduct ? 'Update' : 'Add Product')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

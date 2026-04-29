@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../services/api';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
+
+const API_BASE_URL = '';
 
 export const AuthProvider = ({ children }) => {
     const [member, setMember] = useState(null);
@@ -14,12 +15,10 @@ export const AuthProvider = ({ children }) => {
         loadMemberFromStorage();
     }, []);
 
-    const loadMemberFromStorage = async () => {
+    const loadMemberFromStorage = () => {
         try {
             const storedMember = localStorage.getItem('ftssu_member');
-            const storedId = localStorage.getItem('ftssu_member_id');
-
-            if (storedMember && storedId) {
+            if (storedMember) {
                 const memberData = JSON.parse(storedMember);
                 setMember(memberData);
                 setIsAuthenticated(true);
@@ -33,7 +32,33 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (idNumber, password) => {
         try {
-            const result = await api.verifyMember(idNumber, password);
+            console.log('Attempting login for:', idNumber);
+            console.log('API URL:', `${API_BASE_URL}/verify_member.php`);
+
+            const response = await fetch(`/api/verify_member.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    id_number: idNumber,
+                    password: password
+                }),
+            });
+
+            console.log('Response status:', response.status);
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', e);
+                return { success: false, error: 'Server returned invalid response' };
+            }
 
             if (result.success && result.member) {
                 const memberData = result.member;
@@ -42,18 +67,17 @@ export const AuthProvider = ({ children }) => {
                 localStorage.setItem('ftssu_member_id', memberData.id);
                 localStorage.setItem('ftssu_member_role', memberData.role);
                 localStorage.setItem('ftssu_member_command', memberData.command);
-                localStorage.setItem('ftssu_last_activity', Date.now().toString());
 
                 setMember(memberData);
                 setIsAuthenticated(true);
 
                 return { success: true, member: memberData };
             } else {
-                return { success: false, error: result.message || 'Invalid credentials' };
+                return { success: false, error: result.message || result.error || 'Invalid credentials' };
             }
         } catch (error) {
-            console.error('Login error:', error);
-            return { success: false, error: 'Network error. Please try again.' };
+            console.error('Login error details:', error);
+            return { success: false, error: 'Network error: ' + error.message };
         }
     };
 
@@ -62,7 +86,6 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('ftssu_member_id');
         localStorage.removeItem('ftssu_member_role');
         localStorage.removeItem('ftssu_member_command');
-        localStorage.removeItem('ftssu_last_activity');
         setMember(null);
         setIsAuthenticated(false);
     };

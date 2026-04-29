@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
-import { FiEye, FiEyeOff, FiLogIn } from 'react-icons/fi';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function LoginPage() {
     const [idNumber, setIdNumber] = useState('');
     const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const { login } = useAuth();
     const router = useRouter();
 
@@ -16,48 +15,39 @@ export default function LoginPage() {
         e.preventDefault();
 
         if (!idNumber.trim()) {
-            setError('Please enter your ID Card Number');
+            toast.error('Please enter your ID Card Number');
             return;
         }
         if (!password.trim()) {
-            setError('Please enter your password');
+            toast.error('Please enter your password');
             return;
         }
 
         setLoading(true);
-        setError('');
-
         const result = await login(idNumber.trim().toUpperCase(), password.trim());
 
         if (result.success) {
+            toast.success('Login successful!');
             router.push('/dashboard');
         } else {
-            setError(result.error || 'Invalid ID Number or Password');
+            toast.error(result.error || 'Invalid ID Number or Password');
         }
 
         setLoading(false);
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-red-800 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-700 to-red-900 p-4">
+            <Toaster position="top-center" />
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-                {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                         <span className="text-white text-2xl font-bold">FTSSU</span>
                     </div>
                     <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
                     <p className="text-gray-500 text-sm mt-2">Faith Tabernacle Security Service Unit</p>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-600 text-sm text-center">{error}</p>
-                    </div>
-                )}
-
-                {/* Login Form */}
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-semibold mb-2">
@@ -67,7 +57,7 @@ export default function LoginPage() {
                             type="text"
                             value={idNumber}
                             onChange={(e) => setIdNumber(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent"
                             placeholder="e.g., FTSSU001"
                             autoCapitalize="characters"
                         />
@@ -82,7 +72,7 @@ export default function LoginPage() {
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent pr-10"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent pr-10"
                                 placeholder="Enter your password"
                             />
                             <button
@@ -90,7 +80,7 @@ export default function LoginPage() {
                                 onClick={() => setShowPassword(!showPassword)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                             >
-                                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                                {showPassword ? '👁️' : '👁️‍🗨️'}
                             </button>
                         </div>
                     </div>
@@ -98,16 +88,9 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <>
-                                <FiLogIn size={18} />
-                                Login
-                            </>
-                        )}
+                        {loading ? 'Logging in...' : 'Login →'}
                     </button>
                 </form>
 

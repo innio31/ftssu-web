@@ -168,6 +168,10 @@ export default function Dashboard() {
                 {activeTab === 'attendance' && (
                     <AttendanceTab member={member} />
                 )}
+
+                {activeTab === 'itadmin' && (
+                    <ITAdminTab member={member} />
+                )}
             </div>
 
             {/* Bottom Navigation Bar */}
@@ -205,6 +209,19 @@ export default function Dashboard() {
                         <span className="text-2xl">📅</span>
                         <span className="text-xs mt-1 font-medium">Attendance</span>
                     </button>
+
+                    {/* Admin Button - Conditional */}
+                    {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
+                        <button
+                            onClick={() => setActiveTab('itadmin')}
+                            className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'itadmin' ? 'text-red-600' : 'text-gray-500'
+                                }`}
+                        >
+                            <span className="text-2xl">⚙️</span>
+                            <span className="text-xs mt-1 font-medium">Admin</span>
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setActiveTab('profile')}
                         className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'profile' ? 'text-red-600' : 'text-gray-500'
@@ -1267,6 +1284,249 @@ function AttendanceTab({ member }) {
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 member={member}
+            />
+        </div>
+    )
+}
+
+// ITAdminTab component
+function ITAdminTab({ member }) {
+    const [members, setMembers] = useState([])
+    const [filteredMembers, setFilteredMembers] = useState([])
+    const [services, setServices] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [selectedCommand, setSelectedCommand] = useState('All')
+    const [searchTerm, setSearchTerm] = useState('')
+    const [selectedMember, setSelectedMember] = useState(null)
+    const [showCreateService, setShowCreateService] = useState(false)
+
+    const commands = ['All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G']
+
+    useEffect(() => {
+        loadMembers()
+        loadServices()
+    }, [])
+
+    useEffect(() => {
+        filterMembers()
+    }, [members, selectedCommand, searchTerm])
+
+    const loadMembers = async () => {
+        try {
+            const response = await fetch('/api/get_members.php')
+            const data = await response.json()
+            if (data.success) {
+                setMembers(data.members || [])
+            }
+        } catch (error) {
+            console.error('Error loading members:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const loadServices = async () => {
+        try {
+            const response = await fetch('/api/get_services.php')
+            const data = await response.json()
+            if (data.success) {
+                setServices(data.services || [])
+            }
+        } catch (error) {
+            console.error('Error loading services:', error)
+        }
+    }
+
+    const filterMembers = () => {
+        let filtered = [...members]
+
+        if (selectedCommand !== 'All') {
+            filtered = filtered.filter(m => m.command === selectedCommand)
+        }
+
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase()
+            filtered = filtered.filter(m =>
+                m.first_name.toLowerCase().includes(term) ||
+                m.last_name.toLowerCase().includes(term) ||
+                m.id_number.toLowerCase().includes(term)
+            )
+        }
+
+        setFilteredMembers(filtered)
+    }
+
+    const closeService = async (serviceId) => {
+        if (confirm('Are you sure you want to close this service? Attendance can no longer be taken.')) {
+            try {
+                const response = await fetch('/api/update_service.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: serviceId, is_active: 0 })
+                })
+                const data = await response.json()
+                if (data.success) {
+                    alert('Service closed successfully')
+                    loadServices()
+                } else {
+                    alert(data.error || 'Failed to close service')
+                }
+            } catch (error) {
+                console.error('Error closing service:', error)
+                alert('Network error')
+            }
+        }
+    }
+
+    const formatDate = (dateStr) => {
+        return new Date(dateStr).toLocaleDateString('en-NG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        })
+    }
+
+    const activeServicesCount = services.filter(s => s.is_active == 1).length
+
+    if (loading) {
+        return <div className="text-center py-8">Loading...</div>
+    }
+
+    return (
+        <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>⚙️</span> IT Admin Dashboard
+            </h2>
+
+            {/* Service Management */}
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-gray-800">Service Management</h3>
+                    <button
+                        onClick={() => setShowCreateService(true)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    >
+                        + Create Service
+                    </button>
+                </div>
+
+                <div className="space-y-2">
+                    <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                        <p className="text-sm text-blue-800">
+                            Active Services: <strong>{activeServicesCount}</strong>
+                        </p>
+                    </div>
+
+                    {services.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">No services created yet</p>
+                    ) : (
+                        services.map(service => (
+                            <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-semibold">{service.service_name}</p>
+                                    <p className="text-xs text-gray-500">{formatDate(service.service_date)} | {service.start_time} - {service.end_time}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${service.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-300 text-gray-600'
+                                        }`}>
+                                        {service.is_active ? 'Active' : 'Closed'}
+                                    </span>
+                                    {service.is_active == 1 && (
+                                        <button
+                                            onClick={() => closeService(service.id)}
+                                            className="text-red-600 text-sm hover:underline"
+                                        >
+                                            Close
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* Members Management */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+                <h3 className="font-bold text-gray-800 mb-4">Members Management</h3>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <select
+                        value={selectedCommand}
+                        onChange={(e) => setSelectedCommand(e.target.value)}
+                        className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                        {commands.map(cmd => (
+                            <option key={cmd} value={cmd}>{cmd}</option>
+                        ))}
+                    </select>
+
+                    <input
+                        type="text"
+                        placeholder="Search by name or ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                </div>
+
+                {/* Members List */}
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {filteredMembers.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">No members found</p>
+                    ) : (
+                        filteredMembers.map(member => (
+                            <div
+                                key={member.id}
+                                onClick={() => setSelectedMember(member)}
+                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                            >
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
+                                    {member.profile_picture ? (
+                                        <img src={member.profile_picture} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-sm font-bold">
+                                            {member.first_name?.[0]}{member.last_name?.[0]}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-semibold text-gray-800">
+                                        {member.designation} {member.first_name} {member.last_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">ID: {member.id_number} | {member.command}</p>
+                                </div>
+                                <div>
+                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                        {member.role}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* Modals */}
+            <MemberDetailsModal
+                isOpen={!!selectedMember}
+                onClose={() => setSelectedMember(null)}
+                member={selectedMember}
+                onUpdate={(updatedMember) => {
+                    setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m))
+                    setSelectedMember(null)
+                }}
+            />
+
+            <CreateServiceModal
+                isOpen={showCreateService}
+                onClose={() => setShowCreateService(false)}
+                onSuccess={() => {
+                    loadServices()
+                    setShowCreateService(false)
+                }}
+                activeServicesCount={activeServicesCount}
             />
         </div>
     )

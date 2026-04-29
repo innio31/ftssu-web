@@ -82,10 +82,12 @@ export default function Dashboard() {
                 <div className="flex justify-between items-start">
                     <div>
                         <h1 className="text-2xl font-bold">FTSSU Portal</h1>
-                        <p className="text-sm text-red-100 mt-1">Welcome, {member?.first_name} {member?.last_name}</p>
+                        <p className="text-sm text-red-100 mt-2">
+                            Welcome, {member?.designation} {member?.first_name} {member?.last_name}
+                        </p>
                         <div className="flex gap-2 mt-2">
-                            <span className="bg-white/20 px-2 py-1 rounded text-xs">{member?.designation}</span>
                             <span className="bg-white/20 px-2 py-1 rounded text-xs">{member?.command}</span>
+                            <span className="bg-white/20 px-2 py-1 rounded text-xs">{member?.role}</span>
                         </div>
                     </div>
                     <button
@@ -144,17 +146,9 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* Placeholder for other tabs - will add functionality gradually */}
+                {/* Store Tab - Full functionality */}
                 {activeTab === 'store' && (
-                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                        <p className="text-gray-500">Store coming soon...</p>
-                        <button
-                            onClick={() => window.location.href = '/store'}
-                            className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg"
-                        >
-                            Go to Store →
-                        </button>
-                    </div>
+                    <StoreTab member={member} />
                 )}
 
                 {activeTab === 'profile' && (
@@ -239,6 +233,328 @@ export default function Dashboard() {
                     </button>
                 </div>
             </div>
+        </div>
+    )
+}
+
+// Store Tab Component - Full functionality
+function StoreTab({ member }) {
+    const [products, setProducts] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [quantities, setQuantities] = useState({})
+    const [cart, setCart] = useState([])
+    const [showCart, setShowCart] = useState(false)
+    const [showPayment, setShowPayment] = useState(false)
+    const [orderSaved, setOrderSaved] = useState(false)
+    const [orderNumber, setOrderNumber] = useState(null)
+
+    useEffect(() => {
+        fetchProducts()
+        // Load cart from localStorage
+        const savedCart = localStorage.getItem('ftssu_cart')
+        if (savedCart) {
+            setCart(JSON.parse(savedCart))
+        }
+    }, [])
+
+    const fetchProducts = async () => {
+        try {
+            const response = await fetch('/api/get_products.php')
+            const data = await response.json()
+            if (data.success) {
+                setProducts(data.products)
+                // Initialize quantities
+                const initialQtys = {}
+                data.products.forEach(product => {
+                    initialQtys[product.id] = product.has_custom_price ? 0 : 0
+                })
+                setQuantities(initialQtys)
+            }
+        } catch (error) {
+            console.error('Error loading products:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const formatPrice = (price) => `₦${Number(price).toLocaleString()}`
+
+    const updateQuantity = (productId, newQuantity, isCustomPrice = false) => {
+        setQuantities(prev => ({
+            ...prev,
+            [productId]: newQuantity
+        }))
+    }
+
+    const addToCart = (product) => {
+        const quantity = quantities[product.id]
+        if (quantity <= 0) {
+            alert('Please enter a quantity or amount')
+            return
+        }
+
+        const existingItem = cart.find(item => item.id === product.id)
+        let newCart
+
+        if (existingItem) {
+            newCart = cart.map(item =>
+                item.id === product.id
+                    ? { ...item, quantity: item.quantity + quantity }
+                    : item
+            )
+        } else {
+            newCart = [...cart, {
+                ...product,
+                quantity: product.has_custom_price ? 1 : quantity,
+                customAmount: product.has_custom_price ? quantity : null
+            }]
+        }
+
+        setCart(newCart)
+        localStorage.setItem('ftssu_cart', JSON.stringify(newCart))
+
+        // Reset quantity
+        setQuantities(prev => ({
+            ...prev,
+            [product.id]: 0
+        }))
+
+        alert(`Added to cart!`)
+    }
+
+    const removeFromCart = (productId) => {
+        const newCart = cart.filter(item => item.id !== productId)
+        setCart(newCart)
+        localStorage.setItem('ftssu_cart', JSON.stringify(newCart))
+    }
+
+    const getTotalPrice = () => {
+        return cart.reduce((sum, item) => {
+            if (item.has_custom_price) {
+                return sum + (item.customAmount || 0)
+            }
+            return sum + (item.price * item.quantity)
+        }, 0)
+    }
+
+    const saveOrder = async () => {
+        if (cart.length === 0) {
+            alert('Your cart is empty')
+            return
+        }
+
+        if (!member.phone_number) {
+            alert('Please update your phone number in profile first')
+            return
+        }
+
+        const orderData = {
+            customer_name: `${member.first_name} ${member.last_name}`,
+            customer_phone: member.phone_number,
+            customer_command: member.command,
+            total_amount: getTotalPrice(),
+            items: cart.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.has_custom_price ? 1 : item.quantity,
+                customAmount: item.customAmount,
+                has_custom_price: item.has_custom_price,
+            }))
+        }
+
+        try {
+            const response = await fetch('/api/save_order.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            })
+            const result = await response.json()
+
+            if (result.success) {
+                setOrderNumber(result.order_number)
+                setOrderSaved(true)
+
+                // Clear cart
+                setCart([])
+                localStorage.removeItem('ftssu_cart')
+
+                // Open WhatsApp
+                const itemsText = cart.map(item => {
+                    if (item.has_custom_price) {
+                        return `• ${item.name}: ₦${item.customAmount?.toLocaleString()}`
+                    }
+                    return `• ${item.name}: ${item.quantity} × ₦${item.price.toLocaleString()} = ₦${(item.price * item.quantity).toLocaleString()}`
+                }).join('%0A')
+
+                const message = `Hello%20Faith%20Tabernacle%20Security%20Accounts%2C%0A%0A✅%20ORDER%20CONFIRMATION%0AOrder%20Number%3A%20${result.order_number}%0A%0A📋%20ORDER%20DETAILS%3A%0A${itemsText}%0A%0A💰%20TOTAL%20AMOUNT%3A%20${formatPrice(getTotalPrice())}%0A%0A👤%20CUSTOMER%20INFORMATION%3A%0AName%3A%20${encodeURIComponent(member.first_name + ' ' + member.last_name)}%0APhone%3A%20${member.phone_number}%0ACommand%3A%20${encodeURIComponent(member.command)}%0A%0A📷%20Payment%20Proof%3A%20(Attach%20screenshot)%0A%0AThank%20you!`
+
+                window.open(`https://wa.me/2348037280183?text=${message}`, '_blank')
+
+                setTimeout(() => {
+                    setShowPayment(false)
+                    setOrderSaved(false)
+                    setOrderNumber(null)
+                }, 3000)
+            } else {
+                alert('Error saving order: ' + (result.error || 'Unknown error'))
+            }
+        } catch (error) {
+            console.error('Error:', error)
+            alert('Error saving order. Please try again.')
+        }
+    }
+
+    if (loading) {
+        return <div className="text-center py-8">Loading products...</div>
+    }
+
+    if (showCart) {
+        return (
+            <div>
+                <button
+                    onClick={() => setShowCart(false)}
+                    className="mb-4 text-red-600 font-semibold"
+                >
+                    ← Back to Store
+                </button>
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h2 className="text-xl font-bold mb-4">Your Cart ({cart.length} items)</h2>
+                    {cart.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">Your cart is empty</p>
+                    ) : (
+                        <>
+                            {cart.map(item => (
+                                <div key={item.id} className="border-b py-3 flex justify-between items-center">
+                                    <div>
+                                        <h3 className="font-semibold">{item.name}</h3>
+                                        {item.has_custom_price ? (
+                                            <p className="text-sm text-red-600">Amount: {formatPrice(item.customAmount)}</p>
+                                        ) : (
+                                            <p className="text-sm text-gray-600">{item.quantity} × {formatPrice(item.price)}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <p className="font-bold text-red-600">
+                                            {item.has_custom_price ? formatPrice(item.customAmount) : formatPrice(item.price * item.quantity)}
+                                        </p>
+                                        <button
+                                            onClick={() => removeFromCart(item.id)}
+                                            className="text-red-500 text-xl"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="mt-4 pt-4 border-t">
+                                <div className="flex justify-between font-bold text-lg mb-4">
+                                    <span>Total:</span>
+                                    <span className="text-red-600">{formatPrice(getTotalPrice())}</span>
+                                </div>
+                                {!showPayment ? (
+                                    <button
+                                        onClick={() => setShowPayment(true)}
+                                        className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold"
+                                    >
+                                        Proceed to Payment →
+                                    </button>
+                                ) : (
+                                    <div>
+                                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                                            <h3 className="font-bold mb-2">🏦 Payment Details</h3>
+                                            <p><strong>Account Number:</strong> 0520007050</p>
+                                            <p><strong>Bank:</strong> Covenant Microfinance Bank</p>
+                                            <p><strong>Account Name:</strong> Faith Tabernacle Security Service Group</p>
+                                        </div>
+                                        <button
+                                            onClick={saveOrder}
+                                            disabled={orderSaved}
+                                            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold"
+                                        >
+                                            {orderSaved ? `Order #${orderNumber} Saved!` : 'Confirm Payment & Send on WhatsApp'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span>🛍️</span> Store
+                </h2>
+                {cart.length > 0 && (
+                    <button
+                        onClick={() => setShowCart(true)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                    >
+                        🛒 Cart ({cart.length})
+                    </button>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+                {products.map((product) => (
+                    <div key={product.id} className="bg-white rounded-xl shadow-md p-5">
+                        <div className="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800">{product.name}</h3>
+                                {!product.has_custom_price ? (
+                                    <p className="text-red-600 font-bold text-xl mt-1">{formatPrice(product.price)}</p>
+                                ) : (
+                                    <p className="text-red-600 text-sm mt-1 italic">💝 Give what's in your heart</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {product.description && (
+                            <p className="text-gray-500 text-sm mb-3">{product.description}</p>
+                        )}
+
+                        <div className="flex gap-3">
+                            {!product.has_custom_price ? (
+                                <input
+                                    type="number"
+                                    value={quantities[product.id] || 0}
+                                    onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)}
+                                    min="0"
+                                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center"
+                                    placeholder="Qty"
+                                />
+                            ) : (
+                                <input
+                                    type="number"
+                                    value={quantities[product.id] || 0}
+                                    onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0, true)}
+                                    min="0"
+                                    step="100"
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                                    placeholder="Enter amount (₦)"
+                                />
+                            )}
+                            <button
+                                onClick={() => addToCart(product)}
+                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700"
+                            >
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {products.length === 0 && (
+                <div className="text-center py-8">
+                    <p className="text-gray-500">No products available</p>
+                </div>
+            )}
         </div>
     )
 }

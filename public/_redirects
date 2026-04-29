@@ -1,0 +1,5 @@
+# API routes
+/api/*  https://impactdigitalacademy.com.ng/ftssu/api/:splat  200
+
+# SPA routes
+/*  /index.html  200

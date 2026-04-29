@@ -6,14 +6,6 @@ const nextConfig = {
         unoptimized: true,
     },
     trailingSlash: true,
-    async rewrites() {
-        return [
-            {
-                source: '/api/:path*',
-                destination: 'https://impactdigitalacademy.com.ng/ftssu/api/:path*',
-            },
-        ];
-    },
 }
 
 module.exports = nextConfig

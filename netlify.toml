@@ -5,17 +5,46 @@
 [build.environment]
   NODE_VERSION = "18"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
+# API Proxy - redirect /api/* to your backend
 [[redirects]]
   from = "/api/*"
   to = "https://impactdigitalacademy.com.ng/ftssu/api/:splat"
   status = 200
   force = true
 
+# SPA Fallback - all routes go to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Exclude static assets from SPA fallback
+[[redirects]]
+  from = "/_next/*"
+  to = "/_next/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/static/*"
+  to = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
+
+[[redirects]]
+  from = "/manifest.json"
+  to = "/manifest.json"
+  status = 200
+
+[[redirects]]
+  from = "/sw.js"
+  to = "/sw.js"
+  status = 200
+
+# Headers for PWA
 [[headers]]
   for = "/sw.js"
   [headers.values]
@@ -31,3 +60,4 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+    Service-Worker-Allowed = "/"

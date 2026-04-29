@@ -26,23 +26,75 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
 
     const handleSave = async () => {
         setLoading(true)
+
+        // Build update data - only include fields that have changed
+        const updateData = { id: member.id }
+        let hasChanges = false
+
+        if (editedData.first_name !== member.first_name) {
+            updateData.first_name = editedData.first_name
+            hasChanges = true
+        }
+        if (editedData.last_name !== member.last_name) {
+            updateData.last_name = editedData.last_name
+            hasChanges = true
+        }
+        if (editedData.designation !== member.designation) {
+            updateData.designation = editedData.designation
+            hasChanges = true
+        }
+        if (editedData.command !== member.command) {
+            updateData.command = editedData.command
+            hasChanges = true
+        }
+        if (editedData.role !== member.role) {
+            updateData.role = editedData.role
+            hasChanges = true
+        }
+        if (editedData.gender !== member.gender) {
+            updateData.gender = editedData.gender
+            hasChanges = true
+        }
+        if (editedData.phone_number !== member.phone_number) {
+            updateData.phone_number = editedData.phone_number
+            hasChanges = true
+        }
+        if (editedData.email !== member.email) {
+            updateData.email = editedData.email
+            hasChanges = true
+        }
+        if (editedData.date_of_birth !== member.date_of_birth) {
+            updateData.date_of_birth = editedData.date_of_birth
+            hasChanges = true
+        }
+        if (editedData.date_joined !== member.date_joined) {
+            updateData.date_joined = editedData.date_joined
+            hasChanges = true
+        }
+
+        if (!hasChanges) {
+            alert('No changes to update')
+            setEditing(false)
+            setLoading(false)
+            return
+        }
+
         try {
             const response = await fetch('/api/update_member.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: member.id,
-                    ...editedData
-                })
+                body: JSON.stringify(updateData)
             })
             const data = await response.json()
+
             if (data.success) {
                 alert('Member updated successfully!')
-                setMember({ ...member, ...editedData })
-                if (onUpdate) onUpdate({ ...member, ...editedData })
+                const updatedMember = { ...member, ...updateData }
+                setMember(updatedMember)
+                if (onUpdate) onUpdate(updatedMember)
                 setEditing(false)
             } else {
-                alert(data.error || 'Failed to update member')
+                alert(data.error || data.message || 'Failed to update member')
             }
         } catch (error) {
             console.error('Update error:', error)
@@ -51,6 +103,7 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
         setLoading(false)
     }
 
+    // Rest of the component remains the same...
     if (!isOpen) return null
 
     const commands = [
@@ -73,8 +126,11 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
+            setEditing(false)
+            onClose()
+        }}>
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                 <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-800">Member Details</h2>
                     <div className="flex gap-2">
@@ -110,6 +166,15 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                     <div className="space-y-4">
                         {editing ? (
                             <>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">ID Number</label>
+                                    <input
+                                        type="text"
+                                        value={member?.id_number || ''}
+                                        disabled
+                                        className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                                    />
+                                </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
                                     <input

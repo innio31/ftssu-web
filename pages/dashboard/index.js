@@ -144,7 +144,7 @@ export default function Dashboard() {
                         </button>
                     )}
                     {/* Acct Admin Tab - For Accountant and Acct Admin roles */}
-                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'Admin') && (
+                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'ITAdmin') && (
                         <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
                             <span className="text-2xl">💰</span>
                             <span className="text-xs mt-1 font-medium">Accounts</span>
@@ -558,25 +558,64 @@ function ProfileTab({ member, onUpdate }) {
     }
 
     const handleUpdateProfile = async () => {
-        if (editedData.phone_number && editedData.phone_number.length !== 11) { alert('Phone number must be 11 digits'); return }
+        if (editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0) {
+            alert('Phone number must be exactly 11 digits')
+            return
+        }
+
+        // Build update data - only include fields that have changed
         const updateData = { id: member.id }
-        if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) updateData.phone_number = editedData.phone_number
-        if (editedData.email !== profile?.email) updateData.email = editedData.email
-        if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) updateData.date_of_birth = editedData.date_of_birth
-        if (Object.keys(updateData).length === 1) { alert('No changes to update'); setEditing(false); return }
+        let hasChanges = false
+
+        if (editedData.phone_number !== profile?.phone_number) {
+            updateData.phone_number = editedData.phone_number
+            hasChanges = true
+        }
+
+        if (editedData.email !== profile?.email) {
+            updateData.email = editedData.email
+            hasChanges = true
+        }
+
+        if (editedData.date_of_birth !== profile?.date_of_birth) {
+            updateData.date_of_birth = editedData.date_of_birth
+            hasChanges = true
+        }
+
+        if (!hasChanges) {
+            alert('No changes to update')
+            setEditing(false)
+            return
+        }
+
         setLoading(true)
+
         try {
-            const response = await fetch('/api/update_member.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) })
+            console.log('Sending update data:', updateData)
+
+            const response = await fetch('/api/update_member.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData),
+            })
+
             const data = await response.json()
+            console.log('Update response:', data)
+
             if (data.success) {
                 const updatedMember = { ...profile, ...updateData }
                 setProfile(updatedMember)
                 localStorage.setItem('ftssu_member', JSON.stringify(updatedMember))
                 if (onUpdate) onUpdate(updatedMember)
-                alert('Profile updated!')
+                alert('Profile updated successfully!')
                 setEditing(false)
-            } else { alert(data.error || 'Failed to update') }
-        } catch (error) { alert('Network error') }
+            } else {
+                alert(data.error || data.message || 'Failed to update profile')
+            }
+        } catch (error) {
+            console.error('Update error:', error)
+            alert('Network error. Please try again.')
+        }
         setLoading(false)
     }
 

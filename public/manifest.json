@@ -1,7 +1,7 @@
 {
     "name": "FTSSU Member Portal",
     "short_name": "FTSSU",
-    "description": "Faith Tabernacle Security Service Unit Member Portal",
+    "description": "Faith Tabernacle Security Service Unit Portal",
     "start_url": "/",
     "display": "standalone",
     "theme_color": "#cc0000",

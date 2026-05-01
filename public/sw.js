@@ -1,13 +1,13 @@
-const CACHE_NAME = 'ftssu-v1';
+const CACHE_NAME = 'ftssu-v2';
 const urlsToCache = [
     '/',
-    '/dashboard',
-    '/store',
-    '/cart',
-    '/orders',
-    '/profile',
-    '/attendance',
-    '/announcements',
+    '/dashboard/',
+    '/store/',
+    '/cart/',
+    '/orders/',
+    '/profile/',
+    '/attendance/',
+    '/announcements/',
     '/manifest.json'
 ];
 
@@ -16,52 +16,22 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log('Opened cache');
+                console.log('[SW] Caching app shell');
                 return cache.addAll(urlsToCache);
             })
+            .catch(err => console.error('[SW] Cache addAll failed:', err))
     );
     self.skipWaiting();
 });
 
-// Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Cache hit - return response
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request).then(
-                    response => {
-                        // Check if we received a valid response
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        // Clone the response
-                        const responseToCache = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    }
-                );
-            })
-    );
-});
-
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-    const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('[SW] Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -71,13 +41,49 @@ self.addEventListener('activate', event => {
     event.waitUntil(clients.claim());
 });
 
-// Handle offline fallback
+// Fetch event - SINGLE listener (merged)
 self.addEventListener('fetch', event => {
+    // Handle page navigation requests
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => {
-                return caches.match('/offline.html');
-            })
+            fetch(event.request)
+                .catch(() => {
+                    return caches.match(event.request)
+                        .then(cached => cached || caches.match('/offline.html'));
+                })
         );
+        return;
     }
+
+    // Handle all other requests (assets, API calls, etc.)
+    event.respondWith(
+        caches.match(event.request).then(cachedResponse => {
+            // Return cached version if available
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+
+            // Otherwise fetch from network
+            return fetch(event.request).then(networkResponse => {
+                // Don't cache non-basic or error responses
+                if (
+                    !networkResponse ||
+                    networkResponse.status !== 200 ||
+                    networkResponse.type !== 'basic'
+                ) {
+                    return networkResponse;
+                }
+
+                // Cache a clone of the response for future use
+                const responseToCache = networkResponse.clone();
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(event.request, responseToCache);
+                });
+
+                return networkResponse;
+            }).catch(err => {
+                console.warn('[SW] Fetch failed for:', event.request.url, err);
+            });
+        })
+    );
 });

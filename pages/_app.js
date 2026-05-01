@@ -1,34 +1,28 @@
 import { useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import { CartProvider } from '../contexts/CartContext';
-import InstallButton from '../components/InstallButton';
+import InstallPrompt from '../components/InstallPrompt';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
     useEffect(() => {
         // Register Service Worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('Service Worker registered');
-                })
-                .catch(error => {
-                    console.log('Service Worker registration failed:', error);
-                });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('[App] Service Worker registered, scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[App] Service Worker registration failed:', error);
+                    });
+            });
         }
 
-        // Simulate user engagement to trigger install prompt faster
-        // Track page views and clicks
-        if (!localStorage.getItem('ftssu_visits')) {
-            localStorage.setItem('ftssu_visits', '1');
-        } else {
-            let visits = parseInt(localStorage.getItem('ftssu_visits'));
-            visits++;
-            localStorage.setItem('ftssu_visits', visits.toString());
-        }
-
-        // Log visit for debugging
-        console.log('Visit count:', localStorage.getItem('ftssu_visits'));
+        // Track visit count (helps browser qualify app for install prompt)
+        const visits = parseInt(localStorage.getItem('ftssu_visits') || '0') + 1;
+        localStorage.setItem('ftssu_visits', visits.toString());
+        console.log('[App] Visit count:', visits);
 
     }, []);
 
@@ -36,7 +30,7 @@ function MyApp({ Component, pageProps }) {
         <AuthProvider>
             <CartProvider>
                 <Component {...pageProps} />
-                <InstallButton />
+                <InstallPrompt />
             </CartProvider>
         </AuthProvider>
     );

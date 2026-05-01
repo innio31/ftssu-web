@@ -923,7 +923,7 @@ function ITAdminTab({ member }) {
     })
     const [submitting, setSubmitting] = useState(false)
 
-    const commands = ['All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G']
+    const commands = ['All', 'COMMAND 1', 'COMMAND 2', 'COMMAND 3', 'COMMAND 4', 'COMMAND 5', 'COMMAND 6', 'COMMAND 7', 'COMMAND 8', 'COMMAND 9', 'COMMAND 10', 'COMMAND 11', 'COMMAND 12', 'COMMAND 13', 'COMMAND 14', 'COMMAND 15', 'COMMAND 16', 'COMMAND 17', 'COMMAND 18', 'COMMAND 19', 'COMMAND 20', 'COMMAND 21', 'COMMAND 22', 'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5', 'VETERAN', 'KHMS', 'COVENANT DAY', 'YOUTH', 'RECRUITMENT & TRAINING', 'HONOUR', 'G & G', 'GOSHEN', 'CODE & ETHICS', 'IID', 'SID', 'PATROL', 'UPPER ROOM', 'OPERATION', 'IRS', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'];
 
     // Load data
     const loadMembers = async () => {

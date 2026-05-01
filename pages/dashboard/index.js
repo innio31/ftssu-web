@@ -44,7 +44,7 @@ export default function Dashboard() {
     }
 
     const formatDate = (dateStr) => {
-        const date = new Date(dateStr + ' UTC') // Treat as UTC
+        const date = new Date(dateStr)
         const now = new Date()
         const diffMs = now - date
         const diffMins = Math.floor(diffMs / 60000)

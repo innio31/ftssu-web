@@ -71,6 +71,7 @@ export default function LoginPage() {
                             onChange={(e) => setIdNumber(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
                             placeholder="e.g., FTSSU001"
+                            style={{ textTransform: 'uppercase' }}
                         />
                     </div>
 

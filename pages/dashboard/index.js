@@ -5,6 +5,7 @@ import AttendanceModal from '../../components/AttendanceModal'
 import AttendanceReportModal from '../../components/AttendanceReportModal'
 import MemberDetailsModal from '../../components/MemberDetailsModal'
 import CreateServiceModal from '../../components/CreateServiceModal'
+import NotificationBell from '../../components/NotificationBell'  // SNIPPET 1: Added
 
 export default function Dashboard() {
     const router = useRouter()
@@ -71,7 +72,7 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 pb-24">  {/* Changed from pb-20 to pb-24 for more space */}
+            <div className="min-h-screen bg-gray-50 pb-24">
                 <div className="text-center">Loading...</div>
             </div>
         )
@@ -79,7 +80,7 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
-            {/* Header */}
+            {/* SNIPPET 2: Updated Header with NotificationBell */}
             <div className="bg-gradient-to-r from-red-700 to-red-600 text-white p-6 shadow-lg">
                 <div className="flex justify-between items-start">
                     <div>
@@ -92,9 +93,14 @@ export default function Dashboard() {
                             <span className="bg-white/20 px-2 py-1 rounded text-xs">{member?.role}</span>
                         </div>
                     </div>
-                    <button onClick={handleLogout} className="bg-red-800 px-4 py-2 rounded-lg text-sm hover:bg-red-900 transition">
-                        Logout
-                    </button>
+
+                    {/* RIGHT SIDE: Bell + Logout */}
+                    <div className="flex items-center gap-2">
+                        <NotificationBell member={member} />
+                        <button onClick={handleLogout} className="bg-red-800 px-4 py-2 rounded-lg text-sm hover:bg-red-900 transition">
+                            Logout
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -156,34 +162,119 @@ export default function Dashboard() {
     )
 }
 
-// ============= ANNOUNCEMENTS TAB =============
+// ============= SNIPPET 3: UPDATED ANNOUNCEMENTS TAB with Birthdays =============
 function AnnouncementsTab({ announcements, formatDate, getRoleColor }) {
-    if (announcements.length === 0) {
-        return <div className="bg-white rounded-xl shadow-md p-8 text-center"><p className="text-gray-500">No announcements yet</p></div>
+    const [birthdays, setBirthdays] = useState([]);
+
+    useEffect(() => {
+        fetch('/api/get_birthdays.php')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) setBirthdays(data.birthdays);
+            })
+            .catch(err => console.error('Birthday fetch failed:', err));
+    }, []);
+
+    // Build mixed feed: birthday card first (if any), then announcements
+    const feed = [
+        ...(birthdays.length > 0 ? [{ type: 'birthday', birthdays }] : []),
+        ...announcements.map(a => ({ type: 'announcement', ...a }))
+    ];
+
+    if (feed.length === 0) {
+        return (
+            <div className="text-center py-10">
+                <p className="text-4xl mb-3">📭</p>
+                <p className="text-gray-500">No announcements yet</p>
+            </div>
+        );
     }
+
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><span>📢</span> Announcements</h2>
-            {announcements.map((announcement) => (
-                <div key={announcement.id} className={`bg-white rounded-xl shadow-md overflow-hidden ${announcement.is_pinned == 1 ? 'border-l-4 border-l-red-600' : ''}`}>
-                    {announcement.is_pinned == 1 && <div className="bg-yellow-50 px-4 py-1 border-b border-yellow-200"><span className="text-xs text-red-600 font-semibold">📌 PINNED</span></div>}
-                    <div className="p-5">
-                        <h3 className="font-bold text-lg text-gray-800 mb-2">{announcement.title}</h3>
-                        <p className="text-gray-600 leading-relaxed mb-3">{announcement.content}</p>
-                        <div className="flex justify-between items-center text-sm">
-                            <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: getRoleColor(announcement.author_role) }}>
-                                    {announcement.author?.[0]}
+            {feed.map((item, index) => {
+                // ---- Birthday Card ----
+                if (item.type === 'birthday') {
+                    return (
+                        <div key="birthday-card" className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl shadow-md overflow-hidden">
+                            <div className="p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-2xl">🎂</span>
+                                    <h3 className="font-bold text-white text-lg">
+                                        Birthday{item.birthdays.length > 1 ? 's' : ''} Today!
+                                    </h3>
                                 </div>
-                                <span className="text-gray-500">{announcement.author} ({announcement.author_role})</span>
+
+                                <div className="space-y-3">
+                                    {item.birthdays.map((b, i) => (
+                                        <div key={i} className="bg-white/25 rounded-lg p-3 flex items-center gap-3">
+                                            {/* Profile picture */}
+                                            {b.profile_picture ? (
+                                                <img
+                                                    src={b.profile_picture}
+                                                    alt={b.name}
+                                                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextSibling.style.display = 'flex';
+                                                    }}
+                                                />
+                                            ) : null}
+                                            {/* Fallback avatar */}
+                                            <div
+                                                className="w-12 h-12 rounded-full bg-white/40 border-2 border-white flex items-center justify-center text-white font-bold text-lg"
+                                                style={{ display: b.profile_picture ? 'none' : 'flex' }}
+                                            >
+                                                {b.name.charAt(0)}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-white text-sm truncate">{b.name}</p>
+                                                <p className="text-yellow-100 text-xs">{b.command}</p>
+                                            </div>
+
+                                            <div className="text-center">
+                                                <p className="text-white text-xl">🎉</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <p className="text-yellow-100 text-xs text-center mt-3">
+                                    Wishing {item.birthdays.length > 1 ? 'them' : 'them'} a blessed birthday! 🙏
+                                </p>
                             </div>
-                            <span className="text-gray-400 text-xs">{formatDate(announcement.created_at)}</span>
+                        </div>
+                    );
+                }
+
+                // ---- Announcement Card ----
+                return (
+                    <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.is_pinned == 1 ? 'border-red-300' : 'border-gray-100'}`}>
+                        {item.is_pinned == 1 && (
+                            <div className="bg-red-50 px-4 py-1 border-b border-red-200">
+                                <span className="text-red-600 text-xs font-semibold">📌 Pinned</span>
+                            </div>
+                        )}
+                        <div className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                                <h3 className="font-bold text-gray-800 flex-1 pr-2">{item.title}</h3>
+                                <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(item.created_at)}</span>
+                            </div>
+                            <p className="text-gray-600 text-sm leading-relaxed">{item.content}</p>
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                                <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium"
+                                    style={{ backgroundColor: getRoleColor(item.author_role) }}>
+                                    {item.author_role}
+                                </span>
+                                <span className="text-xs text-gray-500">{item.author}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
-    )
+    );
 }
 
 // ============= STORE TAB =============
@@ -328,6 +419,23 @@ function StoreTab({ member, onNavigate }) {
                 setShowCart(false)
                 setShowPayment(false)
                 alert(`Order #${result.order_number} recorded!`)
+
+                // SNIPPET 5: Send push notification for new order
+                try {
+                    await fetch('/api/send_push.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            roles: ['Acct Admin', 'IT Admin', 'Admin'],
+                            title: '🛍️ New Order Received',
+                            body: `Order ${result.order_number} placed by ${memberData.first_name} ${memberData.last_name} - ${formatPrice(getTotalPrice())}`,
+                            type: 'order',
+                            url: '/dashboard'
+                        })
+                    });
+                } catch (pushError) {
+                    console.error('Push notification error:', pushError);
+                }
             } else {
                 alert(result.error || 'Failed to save order')
             }
@@ -1034,6 +1142,25 @@ function ITAdminTab({ member }) {
                 setShowAnnouncementModal(false)
                 setEditingAnnouncement(null)
                 setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
+
+                // SNIPPET 4: Send push notification for new announcement
+                if (!editingAnnouncement) {
+                    try {
+                        await fetch('/api/send_push.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                roles: ['all'],
+                                title: '📢 New Announcement',
+                                body: announcementForm.title,
+                                type: 'announcement',
+                                url: '/dashboard'
+                            })
+                        });
+                    } catch (pushError) {
+                        console.error('Push notification error:', pushError);
+                    }
+                }
             } else {
                 alert(data.error || 'Failed to save announcement')
             }

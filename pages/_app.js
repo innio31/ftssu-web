@@ -20,7 +20,7 @@ function MyApp({ Component, pageProps }) {
             });
         }
 
-        // Track visit count (helps browser qualify app for install prompt)
+        // Track visit count
         const visits = parseInt(localStorage.getItem('ftssu_visits') || '0') + 1;
         localStorage.setItem('ftssu_visits', visits.toString());
         console.log('[App] Visit count:', visits);

@@ -41,6 +41,14 @@ self.addEventListener('activate', event => {
     event.waitUntil(clients.claim());
 });
 
+// Listen for SKIP_WAITING message from UpdatePrompt component
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log('[SW] Skip waiting, activating new version...');
+        self.skipWaiting();
+    }
+});
+
 // Fetch event - SINGLE listener (merged)
 self.addEventListener('fetch', event => {
     // Handle page navigation requests

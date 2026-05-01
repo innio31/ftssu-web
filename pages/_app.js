@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import { CartProvider } from '../contexts/CartContext';
 import InstallPrompt from '../components/InstallPrompt';
+import UpdatePrompt from '../components/UpdatePrompt';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
@@ -31,6 +32,7 @@ function MyApp({ Component, pageProps }) {
             <CartProvider>
                 <Component {...pageProps} />
                 <InstallPrompt />
+                <UpdatePrompt />
             </CartProvider>
         </AuthProvider>
     );

@@ -8,6 +8,7 @@ import CreateServiceModal from '../../components/CreateServiceModal'
 import NotificationBell from '../../components/NotificationBell'
 import EvangelismTab from '../../components/EvangelismTab';
 import PostingAlert from '../../components/PostingAlert';
+import AdminReportGenerator from '../../components/AdminReportGenerator';
 
 export default function Dashboard() {
     const router = useRouter()

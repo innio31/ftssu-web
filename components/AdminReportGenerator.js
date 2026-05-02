@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 
 export default function AdminReportGenerator() {
     const [reports, setReports] = useState([]);
@@ -61,7 +62,7 @@ export default function AdminReportGenerator() {
             'Report Date': r.report_date,
             'Command': r.command_name,
             'Type of Service': r.type_of_service,
-            'Location': r.location_served,
+            'Location': r.location_served || 'N/A',
             'Command Strength': r.command_strength,
             '1st Service': r.service_1_attendance,
             '2nd Service': r.service_2_attendance,
@@ -79,7 +80,7 @@ export default function AdminReportGenerator() {
 
     return (
         <div className="space-y-4">
-            <h3 className="font-bold text-gray-800 text-lg">Generate Weekly Command Reports</h3>
+            <h3 className="font-bold text-gray-800 text-lg">Weekly Command Reports</h3>
 
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -132,61 +133,67 @@ export default function AdminReportGenerator() {
 
             {/* Results */}
             {loading ? (
-                <div className="text-center py-8">Loading reports...</div>
+                <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                    <p className="text-gray-500 mt-2">Loading reports...</p>
+                </div>
             ) : reports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                    No reports found for the selected criteria
+                <div className="text-center py-12 text-gray-500">
+                    <div className="text-6xl mb-4">📭</div>
+                    <p>No reports found for the selected criteria</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-3 py-2 text-left">Date</th>
-                                <th className="px-3 py-2 text-left">Command</th>
-                                <th className="px-3 py-2 text-left">Service Type</th>
-                                <th className="px-3 py-2 text-center">1st</th>
-                                <th className="px-3 py-2 text-center">2nd</th>
-                                <th className="px-3 py-2 text-center">3rd</th>
-                                <th className="px-3 py-2 text-center">Avg %</th>
-                                <th className="px-3 py-2 text-left">Submitted By</th>
-                                <th className="px-3 py-2 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {reports.map((report) => (
-                                <tr key={report.id} className="border-b hover:bg-gray-50">
-                                    <td className="px-3 py-2">{report.report_date}</td>
-                                    <td className="px-3 py-2 font-semibold">{report.command_name}</td>
-                                    <td className="px-3 py-2">{report.type_of_service}</td>
-                                    <td className="px-3 py-2 text-center">{report.service_1_attendance}</td>
-                                    <td className="px-3 py-2 text-center">{report.service_2_attendance}</td>
-                                    <td className="px-3 py-2 text-center">{report.service_3_attendance}</td>
-                                    <td className="px-3 py-2 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${report.average_attendance >= 70 ? 'bg-green-100 text-green-700' :
-                                                report.average_attendance >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
-                                            }`}>
-                                            {report.average_attendance}%
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">{report.submitted_by_name}</td>
-                                    <td className="px-3 py-2 text-center">
-                                        <button
-                                            onClick={() => window.open(`/api/generate_report_pdf.php?id=${report.id}`, '_blank')}
-                                            className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
-                                        >
-                                            PDF
-                                        </button>
-                                    </td>
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th className="px-3 py-2 text-left">Date</th>
+                                    <th className="px-3 py-2 text-left">Command</th>
+                                    <th className="px-3 py-2 text-left">Service Type</th>
+                                    <th className="px-3 py-2 text-center">1st</th>
+                                    <th className="px-3 py-2 text-center">2nd</th>
+                                    <th className="px-3 py-2 text-center">3rd</th>
+                                    <th className="px-3 py-2 text-center">Avg %</th>
+                                    <th className="px-3 py-2 text-left">Submitted By</th>
+                                    <th className="px-3 py-2 text-center">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {reports.map((report) => (
+                                    <tr key={report.id} className="border-b hover:bg-gray-50">
+                                        <td className="px-3 py-2">{report.report_date}</td>
+                                        <td className="px-3 py-2 font-semibold">{report.command_name}</td>
+                                        <td className="px-3 py-2">{report.type_of_service}</td>
+                                        <td className="px-3 py-2 text-center">{report.service_1_attendance}</td>
+                                        <td className="px-3 py-2 text-center">{report.service_2_attendance}</td>
+                                        <td className="px-3 py-2 text-center">{report.service_3_attendance}</td>
+                                        <td className="px-3 py-2 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${report.average_attendance >= 70 ? 'bg-green-100 text-green-700' :
+                                                    report.average_attendance >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-red-100 text-red-700'
+                                                }`}>
+                                                {report.average_attendance}%
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-xs">{report.submitted_by_name}</td>
+                                        <td className="px-3 py-2 text-center">
+                                            <button
+                                                onClick={() => window.open(`/api/generate_report_pdf.php?id=${report.id}`, '_blank')}
+                                                className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700"
+                                            >
+                                                View PDF
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                     <div className="mt-4 text-sm text-gray-500">
                         Total Reports: {reports.length}
                     </div>
-                </div>
+                </>
             )}
         </div>
     );

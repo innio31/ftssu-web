@@ -116,9 +116,14 @@ self.addEventListener('notificationclick', event => {
 });
 
 // -------------------------------------------------------
-// FETCH - single listener
+// FETCH - Updated to only handle GET requests
 // -------------------------------------------------------
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
+    // Only handle GET requests - skip POST, PUT, DELETE, etc.
+    if (event.request.method !== 'GET') {
+        return; // Let non-GET requests go through without caching
+    }
+
     if (event.request.mode === 'navigate') {
         event.respondWith(
             fetch(event.request).catch(() => {
@@ -130,23 +135,18 @@ self.addEventListener('fetch', event => {
     }
 
     event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            if (cachedResponse) return cachedResponse;
-
-            return fetch(event.request).then(networkResponse => {
-                if (
-                    !networkResponse ||
-                    networkResponse.status !== 200 ||
-                    networkResponse.type !== 'basic'
-                ) {
-                    return networkResponse;
+        caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+            return fetch(event.request).then((networkResponse) => {
+                // Only cache successful responses
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
                 }
-
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, responseToCache);
-                });
-
                 return networkResponse;
             }).catch(err => {
                 console.warn('[SW] Fetch failed:', event.request.url, err);

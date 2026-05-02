@@ -7,6 +7,7 @@ import MemberDetailsModal from '../../components/MemberDetailsModal'
 import CreateServiceModal from '../../components/CreateServiceModal'
 import NotificationBell from '../../components/NotificationBell'
 import EvangelismTab from '../../components/EvangelismTab';
+import PostingAlert from '../../components/PostingAlert';
 
 export default function Dashboard() {
     const router = useRouter()
@@ -81,7 +82,6 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
-            {/* SNIPPET 2: Updated Header with NotificationBell */}
             <div className="bg-gradient-to-r from-red-700 to-red-600 text-white p-6 shadow-lg">
                 <div className="flex justify-between items-start">
                     <div>
@@ -104,9 +104,24 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+            <PostingAlert member={member} />
 
             {/* Main Content */}
             <div className="p-4">
+                {/* ROSTER LINK - Visible to ALL members */}
+                <button
+                    onClick={() => router.push('/roster')}
+                    className="w-full mb-4 flex items-center gap-3 bg-white border border-red-200 rounded-xl p-4 shadow-sm hover:bg-red-50 transition"
+                >
+                    <span className="text-2xl">📋</span>
+                    <div className="text-left flex-1">
+                        <p className="font-bold text-gray-800 text-sm">Posting Roster</p>
+                        <p className="text-xs text-gray-400">Locations, schedule & dress codes</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
                 {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES */}
                 {(['IT Admin', 'Alpha Gulf Serial', 'Gulf Serial', 'Senior Commander I', 'Senior Commander II', 'Secretary'].includes(member?.role)) && (
                     <button

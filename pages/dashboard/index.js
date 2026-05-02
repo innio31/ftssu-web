@@ -206,36 +206,126 @@ export default function Dashboard() {
     )
 }
 
-// ============= SNIPPET 3: UPDATED ANNOUNCEMENTS TAB with Birthdays =============
-function AnnouncementsTab({ announcements, formatDate, getRoleColor }) {
+// ============= SNIPPET 3: UPDATED ANNOUNCEMENTS TAB with Birthdays and Real-time Updates =============
+function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRoleColor }) {
     const [birthdays, setBirthdays] = useState([]);
+    const [localAnnouncements, setLocalAnnouncements] = useState([]);
+    const [lastRefresh, setLastRefresh] = useState(Date.now());
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
+    // Fetch birthdays
     useEffect(() => {
-        fetch('/api/get_birthdays.php')
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) setBirthdays(data.birthdays);
-            })
-            .catch(err => console.error('Birthday fetch failed:', err));
+        fetchBirthdays();
+    }, []);
+
+    // Fetch announcements directly - with cache busting
+    const fetchAnnouncements = async () => {
+        setIsRefreshing(true);
+        try {
+            const response = await fetch(`/api/get_announcements.php?_=${Date.now()}`);
+            const data = await response.json();
+            if (data.success && data.announcements) {
+                // Sort: pinned first, then by date (newest first)
+                const sorted = data.announcements.sort((a, b) => {
+                    if (a.is_pinned === b.is_pinned) {
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    return a.is_pinned === 1 ? -1 : 1;
+                });
+                setLocalAnnouncements(sorted);
+            }
+        } catch (error) {
+            console.error('Error loading announcements:', error);
+            // Fallback to props if fetch fails
+            if (propAnnouncements && propAnnouncements.length > 0) {
+                setLocalAnnouncements(propAnnouncements);
+            }
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const fetchBirthdays = async () => {
+        try {
+            const response = await fetch(`/api/get_birthdays.php?_=${Date.now()}`);
+            const data = await response.json();
+            if (data.success) setBirthdays(data.birthdays);
+        } catch (err) {
+            console.error('Birthday fetch failed:', err);
+        }
+    };
+
+    // Initial load and refresh when prop announcements change
+    useEffect(() => {
+        fetchAnnouncements();
+    }, [propAnnouncements]); // Re-fetch when prop announcements change
+
+    // Set up auto-refresh every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchAnnouncements();
+            fetchBirthdays();
+        }, 30000); // Refresh every 30 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // Refresh when tab becomes visible (using visibility API)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                // Tab became visible, refresh data
+                fetchAnnouncements();
+                fetchBirthdays();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
     // Build mixed feed: birthday card first (if any), then announcements
     const feed = [
         ...(birthdays.length > 0 ? [{ type: 'birthday', birthdays }] : []),
-        ...announcements.map(a => ({ type: 'announcement', ...a }))
+        ...localAnnouncements.map(a => ({ type: 'announcement', ...a }))
     ];
 
-    if (feed.length === 0) {
+    // Manual refresh handler
+    const handleManualRefresh = () => {
+        fetchAnnouncements();
+        fetchBirthdays();
+    };
+
+    if (feed.length === 0 && !isRefreshing) {
         return (
             <div className="text-center py-10">
                 <p className="text-4xl mb-3">📭</p>
                 <p className="text-gray-500">No announcements yet</p>
+                <button
+                    onClick={handleManualRefresh}
+                    className="mt-4 text-sm text-red-600 hover:text-red-800 flex items-center gap-1 mx-auto"
+                >
+                    🔄 Refresh
+                </button>
             </div>
         );
     }
 
     return (
         <div className="space-y-4">
+            {/* Refresh indicator and button */}
+            <div className="flex justify-between items-center mb-2">
+                <div className="text-xs text-gray-400">
+                    {isRefreshing ? 'Updating...' : `Last updated: ${new Date(lastRefresh).toLocaleTimeString()}`}
+                </div>
+                <button
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
+                    className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 disabled:opacity-50"
+                >
+                    <span className="text-sm">🔄</span> Refresh
+                </button>
+            </div>
+
             {feed.map((item, index) => {
                 // ---- Birthday Card ----
                 if (item.type === 'birthday') {

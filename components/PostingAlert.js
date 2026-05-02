@@ -62,7 +62,7 @@ export default function PostingAlert({ member }) {
 
     const alertText = info.type === 'numerical'
         ? `📍 ${info.command} — POSTING: ${info.location}: ${info.locName}  |  📅 Next Sunday: ${fmtSunday(info.nextSunday)}  |  ${dressText}  |  `
-        : `🎖️ ${info.command} — You are on Special Command duty. Report to your designated station as directed by the Control Centre.  |  📅 Next Sunday: ${fmtSunday(info.nextSunday)}  |  ${dressText}  |  `;
+        : `🎖️ ${info.command} — You are on Special Command duty. Report to your designated station as directed by the Command and Control Centre.  |  📅 Next Sunday: ${fmtSunday(info.nextSunday)}  |  ${dressText}  |  `;
 
     const bgColor = info.type === 'numerical' ? 'bg-red-700' : 'bg-green-800';
 

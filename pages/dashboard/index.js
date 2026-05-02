@@ -1153,6 +1153,7 @@ function ITAdminTab({ member }) {
     const [announcements, setAnnouncements] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedCommand, setSelectedCommand] = useState('All')
+    const [selectedStatus, setSelectedStatus] = useState('All')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedMember, setSelectedMember] = useState(null)
     const [showCreateService, setShowCreateService] = useState(false)
@@ -1167,6 +1168,33 @@ function ITAdminTab({ member }) {
     const [submitting, setSubmitting] = useState(false)
 
     const commands = ['All', 'COMMAND 1', 'COMMAND 2', 'COMMAND 3', 'COMMAND 4', 'COMMAND 5', 'COMMAND 6', 'COMMAND 7', 'COMMAND 8', 'COMMAND 9', 'COMMAND 10', 'COMMAND 11', 'COMMAND 12', 'COMMAND 13', 'COMMAND 14', 'COMMAND 15', 'COMMAND 16', 'COMMAND 17', 'COMMAND 18', 'COMMAND 19', 'COMMAND 20', 'COMMAND 21', 'COMMAND 22', 'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5', 'VETERAN', 'KHMS', 'COVENANT DAY', 'YOUTH', 'RECRUITMENT & TRAINING', 'HONOUR', 'G & G', 'GOSHEN', 'CODE & ETHICS', 'IID', 'SID', 'PATROL', 'UPPER ROOM', 'OPERATION', 'IRS', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'];
+
+    const statuses = ['All', 'active', 'inactive', 'not_available', 'revalidation', 'deceased', 'pending'];
+
+    // Helper functions for status display
+    const getMemberStatusColor = (status) => {
+        const colors = {
+            'active': 'bg-green-100 text-green-700',
+            'inactive': 'bg-yellow-100 text-yellow-700',
+            'not_available': 'bg-orange-100 text-orange-700',
+            'revalidation': 'bg-red-100 text-red-700',
+            'deceased': 'bg-gray-700 text-white',
+            'pending': 'bg-gray-100 text-gray-500'
+        };
+        return colors[status] || 'bg-gray-100 text-gray-600';
+    };
+
+    const getMemberStatusText = (status) => {
+        const texts = {
+            'active': '✅ Active',
+            'inactive': '⚠️ Inactive',
+            'not_available': '📭 Not Available',
+            'revalidation': '🔄 Revalidation',
+            'deceased': '💔 Deceased',
+            'pending': '⏳ Pending'
+        };
+        return texts[status] || status;
+    };
 
     // Load data with cache-busting
     const loadMembers = async () => {
@@ -1254,17 +1282,18 @@ function ITAdminTab({ member }) {
 
     // Member functions
     const filterMembers = () => {
-        let filtered = [...members]
-        if (selectedCommand !== 'All') filtered = filtered.filter(m => m.command === selectedCommand)
+        let filtered = [...members];
+        if (selectedCommand !== 'All') filtered = filtered.filter(m => m.command === selectedCommand);
+        if (selectedStatus !== 'All') filtered = filtered.filter(m => m.status === selectedStatus);
         if (searchTerm) {
-            const term = searchTerm.toLowerCase()
+            const term = searchTerm.toLowerCase();
             filtered = filtered.filter(m =>
                 m.first_name?.toLowerCase().includes(term) ||
                 m.last_name?.toLowerCase().includes(term) ||
                 m.id_number?.toLowerCase().includes(term)
-            )
+            );
         }
-        setFilteredMembers(filtered)
+        setFilteredMembers(filtered);
     }
 
     // Announcement functions - UPDATED with better state management
@@ -1447,7 +1476,7 @@ function ITAdminTab({ member }) {
 
     useEffect(() => {
         filterMembers()
-    }, [members, selectedCommand, searchTerm])
+    }, [members, selectedCommand, selectedStatus, searchTerm])
 
     if (loading) return <div className="text-center py-8">Loading...</div>
 
@@ -1532,9 +1561,13 @@ function ITAdminTab({ member }) {
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <h3 className="font-bold text-gray-800 text-lg mb-4">Members Management</h3>
 
+                    {/* Filters with Status Dropdown */}
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
                         <select value={selectedCommand} onChange={(e) => setSelectedCommand(e.target.value)} className="px-3 py-2 border rounded-lg">
                             {commands.map(cmd => (<option key={cmd} value={cmd}>{cmd}</option>))}
+                        </select>
+                        <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="px-3 py-2 border rounded-lg">
+                            {statuses.map(status => (<option key={status} value={status}>{status === 'All' ? 'All Statuses' : status.replace('_', ' ').toUpperCase()}</option>))}
                         </select>
                         <input type="text" placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 px-3 py-2 border rounded-lg" />
                     </div>
@@ -1558,7 +1591,12 @@ function ITAdminTab({ member }) {
                                         <p className="font-semibold text-gray-800">{memberItem.designation} {memberItem.first_name} {memberItem.last_name}</p>
                                         <p className="text-xs text-gray-500">ID: {memberItem.id_number} | {memberItem.command}</p>
                                     </div>
-                                    <div><span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">{memberItem.role}</span></div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${getMemberStatusColor(memberItem.status)}`}>
+                                            {getMemberStatusText(memberItem.status)}
+                                        </span>
+                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">{memberItem.role}</span>
+                                    </div>
                                 </div>
                             ))
                         )}

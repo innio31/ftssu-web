@@ -5,6 +5,10 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
     const [editing, setEditing] = useState(false)
     const [loading, setLoading] = useState(false)
     const [editedData, setEditedData] = useState({})
+    const [memberDetails, setMemberDetails] = useState(null)
+    const [loadingDetails, setLoadingDetails] = useState(false)
+    const [editingStatus, setEditingStatus] = useState(false)
+    const [selectedStatus, setSelectedStatus] = useState('')
 
     useEffect(() => {
         if (initialMember) {
@@ -21,8 +25,53 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                 date_of_birth: initialMember.date_of_birth || '',
                 date_joined: initialMember.date_joined || ''
             })
+            setSelectedStatus(initialMember.status || 'pending')
+            fetchMemberDetails()
         }
     }, [initialMember])
+
+    const fetchMemberDetails = async () => {
+        if (!initialMember?.id) return
+        setLoadingDetails(true)
+        try {
+            const response = await fetch(`/api/get_member_details.php?id=${initialMember.id}`)
+            const data = await response.json()
+            if (data.success) {
+                setMemberDetails(data)
+                if (data.member?.status) {
+                    setSelectedStatus(data.member.status)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching member details:', error)
+        }
+        setLoadingDetails(false)
+    }
+
+    const handleStatusUpdate = async () => {
+        try {
+            const response = await fetch('/api/update_member_status.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    member_id: member.id,
+                    status: selectedStatus
+                })
+            })
+            const data = await response.json()
+            if (data.success) {
+                alert('Status updated successfully!')
+                setEditingStatus(false)
+                fetchMemberDetails()
+                if (onUpdate) onUpdate({ ...member, status: selectedStatus })
+            } else {
+                alert(data.message || 'Failed to update status')
+            }
+        } catch (error) {
+            console.error('Error updating status:', error)
+            alert('Network error')
+        }
+    }
 
     const handleSave = async () => {
         setLoading(true)
@@ -93,6 +142,7 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                 setMember(updatedMember)
                 if (onUpdate) onUpdate(updatedMember)
                 setEditing(false)
+                fetchMemberDetails() // Refresh details after update
             } else {
                 alert(data.error || data.message || 'Failed to update member')
             }
@@ -103,7 +153,30 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
         setLoading(false)
     }
 
-    // Rest of the component remains the same...
+    const getStatusColor = (status) => {
+        const colors = {
+            'active': 'bg-green-100 text-green-700',
+            'inactive': 'bg-yellow-100 text-yellow-700',
+            'not_available': 'bg-orange-100 text-orange-700',
+            'revalidation': 'bg-red-100 text-red-700',
+            'deceased': 'bg-gray-700 text-white',
+            'pending': 'bg-gray-100 text-gray-500'
+        }
+        return colors[status] || 'bg-gray-100 text-gray-600'
+    }
+
+    const getStatusText = (status) => {
+        const texts = {
+            'active': '✅ Active (70%+ attendance)',
+            'inactive': '⚠️ Inactive (Below 40% attendance)',
+            'not_available': '📭 Not Available (2+ months absent)',
+            'revalidation': '🔄 Revalidation (6+ months absent)',
+            'deceased': '💔 Deceased',
+            'pending': '⏳ Pending'
+        }
+        return texts[status] || status
+    }
+
     if (!isOpen) return null
 
     const commands = [
@@ -128,18 +201,19 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => {
             setEditing(false)
+            setEditingStatus(false)
             onClose()
         }}>
             <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                 <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-800">Member Details</h2>
                     <div className="flex gap-2">
-                        {!editing && (
+                        {!editing && !editingStatus && (
                             <button
                                 onClick={() => setEditing(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                             >
-                                Edit
+                                Edit Profile
                             </button>
                         )}
                         <button onClick={onClose} className="text-gray-500 text-2xl hover:text-gray-700">
@@ -165,6 +239,7 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                     {/* Member Information */}
                     <div className="space-y-4">
                         {editing ? (
+                            // Edit Mode
                             <>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">ID Number</label>
@@ -310,7 +385,9 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                                 </div>
                             </>
                         ) : (
+                            // View Mode
                             <>
+                                {/* Basic Information */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">ID Number</p>
@@ -353,6 +430,137 @@ export default function MemberDetailsModal({ isOpen, onClose, member: initialMem
                                         <p className="text-gray-800 font-medium">{formatDate(member?.date_joined)}</p>
                                     </div>
                                 </div>
+
+                                {/* Status Section */}
+                                <div className="border-t pt-4 mt-4">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <p className="text-xs text-gray-500 uppercase font-semibold">Member Status</p>
+                                        {!editingStatus && (
+                                            <button
+                                                onClick={() => setEditingStatus(true)}
+                                                className="text-blue-600 text-sm hover:underline"
+                                            >
+                                                Edit Status
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {editingStatus ? (
+                                        <div className="space-y-3">
+                                            <select
+                                                value={selectedStatus}
+                                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                            >
+                                                <option value="active">✅ Active (70%+ attendance)</option>
+                                                <option value="inactive">⚠️ Inactive (Below 40% attendance)</option>
+                                                <option value="not_available">📭 Not Available (2+ months absent)</option>
+                                                <option value="revalidation">🔄 Revalidation (6+ months absent)</option>
+                                                <option value="deceased">💔 Deceased</option>
+                                                <option value="pending">⏳ Pending</option>
+                                            </select>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingStatus(false)
+                                                        setSelectedStatus(member?.status || 'pending')
+                                                    }}
+                                                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleStatusUpdate}
+                                                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                                                >
+                                                    Save Status
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(member?.status)}`}>
+                                                {getStatusText(member?.status)}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Attendance Statistics */}
+                                {loadingDetails ? (
+                                    <div className="border-t pt-4">
+                                        <p className="text-center text-gray-500 py-4">Loading attendance data...</p>
+                                    </div>
+                                ) : memberDetails?.attendance_stats ? (
+                                    <div className="border-t pt-4">
+                                        <p className="text-xs text-gray-500 uppercase font-semibold mb-3">Attendance Statistics (Last 90 Days)</p>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                                <p className="text-2xl font-bold text-blue-600">
+                                                    {memberDetails.attendance_stats.total_services_90days || 0}
+                                                </p>
+                                                <p className="text-xs text-gray-500">Total Services</p>
+                                            </div>
+                                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                                <p className="text-2xl font-bold text-green-600">
+                                                    {memberDetails.attendance_stats.attended_count || 0}
+                                                </p>
+                                                <p className="text-xs text-gray-500">Attended</p>
+                                            </div>
+                                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                                <p className={`text-2xl font-bold ${(memberDetails.attendance_stats.attendance_percentage || 0) >= 70 ? 'text-green-600' :
+                                                        (memberDetails.attendance_stats.attendance_percentage || 0) >= 40 ? 'text-yellow-600' : 'text-red-600'
+                                                    }`}>
+                                                    {memberDetails.attendance_stats.attendance_percentage || 0}%
+                                                </p>
+                                                <p className="text-xs text-gray-500">Attendance Rate</p>
+                                            </div>
+                                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                                                <p className="text-2xl font-bold text-orange-600">
+                                                    {memberDetails.attendance_stats.days_since_last_attendance !== null
+                                                        ? `${memberDetails.attendance_stats.days_since_last_attendance}d`
+                                                        : 'Never'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">Since Last Attendance</p>
+                                            </div>
+                                        </div>
+                                        {memberDetails.attendance_stats.last_attendance && (
+                                            <p className="text-xs text-gray-400 text-center mt-2">
+                                                Last attended: {new Date(memberDetails.attendance_stats.last_attendance).toLocaleDateString()}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : null}
+
+                                {/* Monthly Breakdown */}
+                                {memberDetails?.monthly_attendance && memberDetails.monthly_attendance.length > 0 && (
+                                    <div className="border-t pt-4">
+                                        <p className="text-xs text-gray-500 uppercase font-semibold mb-3">Monthly Attendance Breakdown</p>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {memberDetails.monthly_attendance.map((month, idx) => {
+                                                const percentage = (month.attended / month.total_services) * 100
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                        <span className="text-sm text-gray-600">{month.month}</span>
+                                                        <div className="flex items-center gap-3 flex-1 ml-4">
+                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                <div
+                                                                    className={`h-2 rounded-full ${percentage >= 70 ? 'bg-green-600' :
+                                                                            percentage >= 40 ? 'bg-yellow-600' : 'bg-red-600'
+                                                                        }`}
+                                                                    style={{ width: `${percentage}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className="text-xs text-gray-500 min-w-[60px]">
+                                                                {month.attended}/{month.total_services}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>

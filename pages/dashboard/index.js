@@ -1000,6 +1000,11 @@ function AttendanceTab({ member }) {
     const [showReportModal, setShowReportModal] = useState(false)
     const [loading, setLoading] = useState(true)
 
+    // New state variables for command reports
+    const [showReportForm, setShowReportForm] = useState(false)
+    const [showReportHistory, setShowReportHistory] = useState(false)
+    const [reportHistory, setReportHistory] = useState([])
+
     const canTakeAttendance = ['Secretary', 'Senior Commander I', 'Senior Commander II', 'Admin'].includes(member?.role)
     const canViewReports = ['Golf Charlie', 'Alpha Golf Charlie', 'Golf Serial', 'Alpha Golf Serial', 'Admin', 'IT Admin'].includes(member?.role)
 
@@ -1017,6 +1022,19 @@ function AttendanceTab({ member }) {
             console.error('[Attendance] Failed to load services:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Function to load report history
+    const loadReportHistory = async () => {
+        try {
+            const response = await fetch(`/api/get_weekly_reports.php?command=${encodeURIComponent(member.command)}`)
+            const data = await response.json()
+            if (data.success) {
+                setReportHistory(data.reports)
+            }
+        } catch (error) {
+            console.error('Error loading report history:', error)
         }
     }
 
@@ -1047,47 +1065,72 @@ function AttendanceTab({ member }) {
 
             {/* Take Attendance — visible to Secretary, SCI, SCII, Admin */}
             {canTakeAttendance && (
-                <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-6 text-white mb-6">
-                    <h3 className="text-lg font-bold mb-2">📝 Take Attendance</h3>
-                    <p className="text-red-100 text-sm mb-4">
-                        Record attendance for members in {member.command} command
-                    </p>
-
-                    {services.length === 0 ? (
-                        <p className="text-red-200 text-sm text-center py-2">
-                            No active services available
+                <>
+                    <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-6 text-white mb-6">
+                        <h3 className="text-lg font-bold mb-2">📝 Take Attendance</h3>
+                        <p className="text-red-100 text-sm mb-4">
+                            Record attendance for members in {member.command} command
                         </p>
-                    ) : (
-                        <>
-                            <select
-                                value={selectedService ? String(selectedService.id) : ''}
-                                onChange={handleServiceChange}
-                                className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-300"
-                            >
-                                <option value="">-- Select a Service --</option>
-                                {services.map(service => (
-                                    <option key={service.id} value={String(service.id)}>
-                                        {service.service_name} — {formatDate(service.service_date)}
-                                    </option>
-                                ))}
-                            </select>
 
-                            {selectedService && (
-                                <p className="text-red-100 text-xs mb-3">
-                                    ✅ Selected: {selectedService.service_name}
-                                </p>
-                            )}
+                        {services.length === 0 ? (
+                            <p className="text-red-200 text-sm text-center py-2">
+                                No active services available
+                            </p>
+                        ) : (
+                            <>
+                                <select
+                                    value={selectedService ? String(selectedService.id) : ''}
+                                    onChange={handleServiceChange}
+                                    className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-300"
+                                >
+                                    <option value="">-- Select a Service --</option>
+                                    {services.map(service => (
+                                        <option key={service.id} value={String(service.id)}>
+                                            {service.service_name} — {formatDate(service.service_date)}
+                                        </option>
+                                    ))}
+                                </select>
 
-                            <button
-                                onClick={() => setShowAttendanceModal(true)}
-                                disabled={!selectedService}
-                                className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                            >
-                                {selectedService ? 'Take Attendance' : 'Select a service first'}
-                            </button>
-                        </>
-                    )}
-                </div>
+                                {selectedService && (
+                                    <p className="text-red-100 text-xs mb-3">
+                                        ✅ Selected: {selectedService.service_name}
+                                    </p>
+                                )}
+
+                                <button
+                                    onClick={() => setShowAttendanceModal(true)}
+                                    disabled={!selectedService}
+                                    className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                >
+                                    {selectedService ? 'Take Attendance' : 'Select a service first'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Weekly Command Report Buttons */}
+                    <div className="space-y-3 mb-6">
+                        <button
+                            onClick={() => {
+                                setShowReportForm(true)
+                                setShowReportHistory(false)
+                            }}
+                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition"
+                        >
+                            📝 Submit Weekly Command Report
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowReportHistory(true)
+                                setShowReportForm(false)
+                                loadReportHistory()
+                            }}
+                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                        >
+                            📊 View Report History
+                        </button>
+                    </div>
+                </>
             )}
 
             {/* Active Services list */}
@@ -1124,6 +1167,7 @@ function AttendanceTab({ member }) {
                 </div>
             )}
 
+            {/* Modals */}
             <AttendanceModal
                 isOpen={showAttendanceModal}
                 onClose={() => {
@@ -1140,6 +1184,73 @@ function AttendanceTab({ member }) {
                 onClose={() => setShowReportModal(false)}
                 member={member}
             />
+
+            {/* Weekly Report Form Modal */}
+            {showReportForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowReportForm(false)}>
+                    <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-800">Weekly Command Report of Activities</h2>
+                            <button onClick={() => setShowReportForm(false)} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
+                        </div>
+                        <div className="p-6">
+                            <WeeklyReportForm
+                                member={member}
+                                onSuccess={() => {
+                                    setShowReportForm(false)
+                                    alert('Report submitted successfully!')
+                                }}
+                                onCancel={() => setShowReportForm(false)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Report History Modal */}
+            {showReportHistory && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowReportHistory(false)}>
+                    <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-800">Report History - {member.command}</h2>
+                            <button onClick={() => setShowReportHistory(false)} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
+                        </div>
+                        <div className="p-6">
+                            {reportHistory.length === 0 ? (
+                                <p className="text-center text-gray-500">No reports submitted yet</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {reportHistory.map(report => (
+                                        <div key={report.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <p className="font-bold text-gray-800">Date: {report.report_date}</p>
+                                                    <p className="text-sm text-gray-600 mt-1">Service: {report.type_of_service}</p>
+                                                    <p className="text-sm text-gray-600">Location: {report.location_served}</p>
+                                                    <p className="text-sm text-gray-600 mt-1">
+                                                        Attendance: 1st: {report.service_1_attendance},
+                                                        2nd: {report.service_2_attendance},
+                                                        3rd: {report.service_3_attendance}
+                                                    </p>
+                                                    <p className="text-sm font-semibold text-blue-600 mt-1">
+                                                        Average: {report.average_attendance}%
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => window.open(`/api/generate_report_pdf.php?id=${report.id}`, '_blank')}
+                                                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition ml-4"
+                                                >
+                                                    View PDF
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -1507,6 +1618,13 @@ function ITAdminTab({ member }) {
                 >
                     📢 Announcements
                 </button>
+                <button
+                    onClick={() => setAdminSubTab('weekly_reports')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition whitespace-nowrap ${adminSubTab === 'weekly_reports' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                >
+                    📋 Weekly Reports
+                </button>
             </div>
 
             {/* Service Management Subtab */}
@@ -1662,6 +1780,12 @@ function ITAdminTab({ member }) {
                             ))
                         )}
                     </div>
+                </div>
+            )}
+
+            {adminSubTab === 'weekly_reports' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <AdminReportGenerator />
                 </div>
             )}
 

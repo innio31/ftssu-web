@@ -5,7 +5,8 @@ import AttendanceModal from '../../components/AttendanceModal'
 import AttendanceReportModal from '../../components/AttendanceReportModal'
 import MemberDetailsModal from '../../components/MemberDetailsModal'
 import CreateServiceModal from '../../components/CreateServiceModal'
-import NotificationBell from '../../components/NotificationBell'  // SNIPPET 1: Added
+import NotificationBell from '../../components/NotificationBell'
+import EvangelismTab from '../../components/EvangelismTab';
 
 export default function Dashboard() {
     const router = useRouter()
@@ -116,6 +117,9 @@ export default function Dashboard() {
                 {activeTab === 'attendance' && <AttendanceTab member={member} />}
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
                 {activeTab === 'acctadmin' && <AcctAdminTab member={member} />}
+                {activeTab === 'evangelism' && (
+                    member?.role === 'Secretary' || member?.role === 'Senior Commander I'
+                ) && <EvangelismTab member={member} />}
             </div>
 
             {/* Bottom Navigation - Flex Layout (better for variable button counts) */}
@@ -143,6 +147,16 @@ export default function Dashboard() {
                         <span className="text-xl">👤</span>
                         <span className="text-xs mt-1 font-medium">Profile</span>
                     </button>
+                    {(member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
+                        <button
+                            onClick={() => setActiveTab('evangelism')}
+                            className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'
+                                }`}
+                        >
+                            <span className="text-xl">✝️</span>
+                            <span className="text-xs mt-1 font-medium">Evangelism</span>
+                        </button>
+                    )}
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
                         <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">⚙️</span>

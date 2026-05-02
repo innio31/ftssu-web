@@ -109,7 +109,7 @@ export default function Dashboard() {
             {/* Main Content */}
             <div className="p-4">
 
-                {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} />}
+                {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} member={member} />}
                 {activeTab === 'store' && <StoreTab member={member} onNavigate={(path) => router.push(path)} />}
                 {activeTab === 'orders' && <OrdersTab member={member} />}
                 {activeTab === 'profile' && <ProfileTab member={member} onUpdate={(updatedMember) => {
@@ -178,7 +178,7 @@ export default function Dashboard() {
 }
 
 // ============= SNIPPET 3: UPDATED ANNOUNCEMENTS TAB with Birthdays and Real-time Updates =============
-function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRoleColor }) {
+function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRoleColor, member }) {
     const [birthdays, setBirthdays] = useState([]);
     const [localAnnouncements, setLocalAnnouncements] = useState([]);
     const [lastRefresh, setLastRefresh] = useState(Date.now());

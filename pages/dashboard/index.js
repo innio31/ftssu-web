@@ -918,29 +918,137 @@ function AttendanceTab({ member }) {
         try {
             const response = await fetch('/api/get_active_services.php')
             const data = await response.json()
-            if (data.success) setServices(data.services || [])
-        } catch (error) { console.error(error) } finally { setLoading(false) }
+            if (data.success) {
+                setServices(data.services || [])
+                console.log('[Attendance] Services loaded:', data.services)
+            }
+        } catch (error) {
+            console.error('[Attendance] Failed to load services:', error)
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
+    // FIX: compare as strings to avoid parseInt mismatch
+    const handleServiceChange = (e) => {
+        const val = e.target.value
+        console.log('[Attendance] Selected value:', val)
+        if (!val) {
+            setSelectedService(null)
+            return
+        }
+        // Compare both as strings — avoids int/string mismatch from API
+        const found = services.find(s => String(s.id) === String(val))
+        console.log('[Attendance] Found service:', found)
+        setSelectedService(found || null)
+    }
+
+    const formatDate = (dateStr) =>
+        new Date(dateStr).toLocaleDateString('en-NG', {
+            day: '2-digit', month: 'short', year: 'numeric'
+        })
 
     if (loading) return <div className="text-center py-8">Loading...</div>
 
     return (
         <div>
             <h2 className="text-xl font-bold text-gray-800 mb-4">📅 Attendance</h2>
+
+            {/* Take Attendance — visible to Secretary, SCI, SCII, Admin */}
             {canTakeAttendance && (
                 <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-6 text-white mb-6">
                     <h3 className="text-lg font-bold mb-2">📝 Take Attendance</h3>
-                    <p className="text-red-100 text-sm mb-4">Record attendance for members in {member.command} command</p>
-                    <select value={selectedService?.id || ''} onChange={(e) => { const service = services.find(s => s.id === parseInt(e.target.value)); setSelectedService(service) }} className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800"><option value="">Select Service</option>{services.map(service => (<option key={service.id} value={service.id}>{service.service_name} - {formatDate(service.service_date)}</option>))}</select>
-                    <button onClick={() => setShowAttendanceModal(true)} disabled={!selectedService} className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold disabled:opacity-50">Take Attendance</button>
+                    <p className="text-red-100 text-sm mb-4">
+                        Record attendance for members in {member.command} command
+                    </p>
+
+                    {services.length === 0 ? (
+                        <p className="text-red-200 text-sm text-center py-2">
+                            No active services available
+                        </p>
+                    ) : (
+                        <>
+                            <select
+                                value={selectedService ? String(selectedService.id) : ''}
+                                onChange={handleServiceChange}
+                                className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-300"
+                            >
+                                <option value="">-- Select a Service --</option>
+                                {services.map(service => (
+                                    <option key={service.id} value={String(service.id)}>
+                                        {service.service_name} — {formatDate(service.service_date)}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {selectedService && (
+                                <p className="text-red-100 text-xs mb-3">
+                                    ✅ Selected: {selectedService.service_name}
+                                </p>
+                            )}
+
+                            <button
+                                onClick={() => setShowAttendanceModal(true)}
+                                disabled={!selectedService}
+                                className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                                {selectedService ? 'Take Attendance' : 'Select a service first'}
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
-            {services.length > 0 && (<div className="bg-white rounded-xl shadow-md p-6 mb-6"><h3 className="font-bold text-gray-800 mb-3">Active Services</h3>{services.map(service => (<div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2"><div><p className="font-semibold">{service.service_name}</p><p className="text-xs text-gray-500">{formatDate(service.service_date)} at {service.start_time}</p></div><span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span></div>))}</div>)}
-            {canViewReports && (<div className="bg-white rounded-xl shadow-md p-6"><h3 className="font-bold text-gray-800 mb-2">📊 Attendance Reports</h3><p className="text-sm text-gray-500 mb-4">View and export attendance records</p><button onClick={() => setShowReportModal(true)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold">View Reports</button></div>)}
-            <AttendanceModal isOpen={showAttendanceModal} onClose={() => { setShowAttendanceModal(false); setSelectedService(null) }} member={member} service={selectedService} onSuccess={loadActiveServices} />
-            <AttendanceReportModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} member={member} />
+
+            {/* Active Services list */}
+            {services.length > 0 && (
+                <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Active Services</h3>
+                    {services.map(service => (
+                        <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
+                            <div>
+                                <p className="font-semibold">{service.service_name}</p>
+                                <p className="text-xs text-gray-500">
+                                    {formatDate(service.service_date)} at {service.start_time}
+                                </p>
+                            </div>
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                Active
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Reports — visible to GC, AGC, GS, AGS, Admin, IT Admin */}
+            {canViewReports && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h3 className="font-bold text-gray-800 mb-2">📊 Attendance Reports</h3>
+                    <p className="text-sm text-gray-500 mb-4">View and export attendance records</p>
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+                    >
+                        View Reports
+                    </button>
+                </div>
+            )}
+
+            <AttendanceModal
+                isOpen={showAttendanceModal}
+                onClose={() => {
+                    setShowAttendanceModal(false)
+                    setSelectedService(null)
+                }}
+                member={member}
+                service={selectedService}
+                onSuccess={loadActiveServices}
+            />
+
+            <AttendanceReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                member={member}
+            />
         </div>
     )
 }

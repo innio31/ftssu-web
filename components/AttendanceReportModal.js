@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 
 export default function AttendanceReportModal({ isOpen, onClose, member }) {
@@ -11,90 +11,106 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
     const [filter, setFilter] = useState({ command: 'All', date: '' })
     const [loadingServices, setLoadingServices] = useState(false)
 
-    // All commands list for filtering
+    // FIX: use a ref to track if already loaded — prevents double-load race condition
+    const hasLoaded = useRef(false)
+
     const commands = [
         'All', 'UPPER ROOM', 'GOSHEN', 'YOUTH', 'OPERATION', 'HONOUR', 'G & G',
         'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5',
         'VETERAN', 'KHMS', 'COVENANT DAY', 'RECRUITMENT & TRAINING', 'SID', 'PATROL',
-        'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'
+        'IID', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3',
+        'SECURITY MEDICAL', 'SALES MONITORING',
+        ...Array.from({ length: 22 }, (_, i) => `COMMAND ${i + 1}`)
     ]
 
+    // FIX: single useEffect, no race condition
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && !hasLoaded.current) {
+            hasLoaded.current = true
             loadServices()
         }
-    }, [isOpen])
-
-    // Refresh services when modal opens
-    useEffect(() => {
-        if (!isOpen) return
-        loadServices()
-        const interval = setInterval(loadServices, 30000) // Refresh every 30 seconds
-        return () => clearInterval(interval)
+        if (!isOpen) {
+            hasLoaded.current = false
+        }
     }, [isOpen])
 
     const loadServices = async () => {
         setLoadingServices(true)
         try {
-            // Add cache-busting timestamp
             const response = await fetch(`/api/get_services.php?_=${Date.now()}`)
             const data = await response.json()
             if (data.success) {
-                // Sort services by date (newest first)
-                const sortedServices = (data.services || []).sort((a, b) =>
+                const sorted = (data.services || []).sort((a, b) =>
                     new Date(b.service_date) - new Date(a.service_date)
                 )
-                setServices(sortedServices)
+                setServices(sorted)
+                console.log('[ReportModal] Services loaded:', sorted.length, sorted.map(s => ({ id: s.id, type: typeof s.id })))
 
-                // If there was a selected service, try to find it in the new data
-                if (selectedService && selectedService.id) {
-                    const updatedService = sortedServices.find(s => s.id === selectedService.id)
-                    if (updatedService) {
-                        setSelectedService(updatedService)
-                    } else {
-                        // Selected service no longer exists, clear it
+                // Re-sync selectedService if it exists
+                if (selectedService) {
+                    const updated = sorted.find(s => String(s.id) === String(selectedService.id))
+                    if (!updated) {
                         setSelectedService(null)
                         setAttendance([])
                         setAbsentees([])
                     }
                 }
             }
-        } catch (error) {
-            console.error('Error loading services:', error)
+        } catch (err) {
+            console.error('[ReportModal] Load services failed:', err)
         }
         setLoadingServices(false)
     }
 
-    const loadAttendanceReport = async () => {
-        if (!selectedService) {
-            alert('Please select a service first')
+    // FIX: compare as strings — avoids int/string mismatch from API
+    const handleServiceSelect = (e) => {
+        const val = e.target.value
+        console.log('[ReportModal] Dropdown changed to:', val)
+        setAttendance([])
+        setAbsentees([])
+        setShowAbsentees(false)
+
+        if (!val) {
+            setSelectedService(null)
             return
         }
+
+        const found = services.find(s => String(s.id) === String(val))
+        console.log('[ReportModal] Matched service:', found)
+        setSelectedService(found || null)
+    }
+
+    const clearSelection = () => {
+        setSelectedService(null)
+        setAttendance([])
+        setAbsentees([])
+        setShowAbsentees(false)
+    }
+
+    const loadAttendanceReport = async () => {
+        if (!selectedService) { alert('Please select a service first'); return }
 
         setLoading(true)
         setAttendance([])
         setAbsentees([])
         try {
             let url = `/api/get_attendance_report.php?service_id=${selectedService.id}&_=${Date.now()}`
-            if (filter.command && filter.command !== 'All') {
+            if (filter.command && filter.command !== 'All')
                 url += `&command=${encodeURIComponent(filter.command)}`
-            }
-            if (filter.date) {
+            if (filter.date)
                 url += `&date=${filter.date}`
-            }
 
-            const response = await fetch(url)
-            const data = await response.json()
+            const res = await fetch(url)
+            const data = await res.json()
 
             if (data.success) {
                 setAttendance(data.attendance || [])
-                // Load absentees after getting attendance
                 await loadAbsentees()
             } else {
                 alert(data.message || 'Failed to load attendance report')
             }
-        } catch (error) {
-            console.error('Error loading attendance:', error)
+        } catch (err) {
+            console.error('[ReportModal] Load report failed:', err)
             alert('Network error. Please try again.')
         }
         setLoading(false)
@@ -102,34 +118,26 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
 
     const loadAbsentees = async () => {
         if (!selectedService) return
-
         try {
             let url = `/api/get_absentees.php?service_id=${selectedService.id}&_=${Date.now()}`
-            if (filter.command && filter.command !== 'All') {
+            if (filter.command && filter.command !== 'All')
                 url += `&command=${encodeURIComponent(filter.command)}`
-            }
 
-            const response = await fetch(url)
-            const data = await response.json()
-            if (data.success) {
-                setAbsentees(data.absentees || [])
-            }
-        } catch (error) {
-            console.error('Error loading absentees:', error)
+            const res = await fetch(url)
+            const data = await res.json()
+            if (data.success) setAbsentees(data.absentees || [])
+        } catch (err) {
+            console.error('[ReportModal] Load absentees failed:', err)
         }
     }
 
     const exportToExcel = () => {
-        if (attendance.length === 0 && absentees.length === 0) {
-            alert('No data to export')
-            return
-        }
-
+        if (attendance.length === 0 && absentees.length === 0) { alert('No data to export'); return }
         const wb = XLSX.utils.book_new()
 
-        // Export attendance sheet
         if (attendance.length > 0) {
-            const attendanceData = attendance.map(a => ({
+            const ws1 = XLSX.utils.json_to_sheet(attendance.map((a, i) => ({
+                'S/N': i + 1,
                 'Date': a.service_date,
                 'Service': a.service_name,
                 'ID Number': a.id_number,
@@ -138,167 +146,116 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                 'Designation': a.designation,
                 'Method': a.attendance_method === 'self_scan' ? 'Self Check-in' : 'Manual Entry',
                 'Time': new Date(a.attendance_time).toLocaleTimeString()
-            }))
-            const ws1 = XLSX.utils.json_to_sheet(attendanceData)
+            })))
             XLSX.utils.book_append_sheet(wb, ws1, 'Present Members')
         }
 
-        // Export absentees sheet
         if (absentees.length > 0) {
-            const absenteesData = absentees.map(a => ({
+            const ws2 = XLSX.utils.json_to_sheet(absentees.map((a, i) => ({
+                'S/N': i + 1,
                 'ID Number': a.id_number,
                 'Name': `${a.first_name} ${a.last_name}`,
                 'Command': a.command,
                 'Designation': a.designation,
                 'Role': a.role,
                 'Phone': a.phone_number || 'N/A'
-            }))
-            const ws2 = XLSX.utils.json_to_sheet(absenteesData)
+            })))
             XLSX.utils.book_append_sheet(wb, ws2, 'Absent Members')
         }
 
-        XLSX.writeFile(wb, `attendance_report_${selectedService?.service_name}_${new Date().toISOString().split('T')[0]}.xlsx`)
+        XLSX.writeFile(wb, `attendance_${selectedService?.service_name}_${new Date().toISOString().split('T')[0]}.xlsx`)
     }
 
-    const getAttendanceStats = () => {
-        const totalMembers = attendance.length + absentees.length
-        const presentCount = attendance.length
-        const absentCount = absentees.length
-        const percentage = totalMembers > 0 ? ((presentCount / totalMembers) * 100).toFixed(1) : 0
-
-        return { totalMembers, presentCount, absentCount, percentage }
-    }
-
-    // FIXED: Handle service selection with proper number conversion
-    const handleServiceSelect = (e) => {
-        const serviceId = e.target.value
-        if (!serviceId) {
-            setSelectedService(null)
-            setAttendance([])
-            setAbsentees([])
-            return
-        }
-
-        // Convert to number and find the service
-        const service = services.find(s => s.id === parseInt(serviceId))
-        console.log('Selected service:', service) // Debug log
-        setSelectedService(service || null)
-        setAttendance([])
-        setAbsentees([])
-        setShowAbsentees(false)
-    }
-
-    // Clear selection handler
-    const clearSelection = () => {
-        setSelectedService(null)
-        setAttendance([])
-        setAbsentees([])
-        setShowAbsentees(false)
+    const getStats = () => {
+        const total = attendance.length + absentees.length
+        const present = attendance.length
+        const absent = absentees.length
+        const pct = total > 0 ? ((present / total) * 100).toFixed(1) : 0
+        return { total, present, absent, pct }
     }
 
     if (!isOpen) return null
-
-    const stats = getAttendanceStats()
+    const stats = getStats()
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col"
+                onClick={e => e.stopPropagation()}>
+
+                {/* Header */}
                 <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-800">📊 Attendance Report</h2>
-                    <button onClick={onClose} className="text-gray-500 text-2xl hover:text-gray-700">
-                        &times;
-                    </button>
+                    <button onClick={onClose} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
                 </div>
 
+                {/* Controls */}
                 <div className="p-4 border-b space-y-3">
-                    {/* Service Selection */}
+                    {/* Service selector */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">
                             Select Service <span className="text-red-500">*</span>
                         </label>
                         <div className="flex gap-2">
                             <select
-                                value={selectedService?.id || ''}
+                                value={selectedService ? String(selectedService.id) : ''}
                                 onChange={handleServiceSelect}
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                             >
                                 <option value="">-- Choose a service --</option>
-                                {services.map(service => (
-                                    <option key={service.id} value={service.id}>
-                                        {service.service_name} - {service.service_date}
-                                        {service.is_active == 1 ? ' (✓ Active)' : ' (✗ Closed)'}
+                                {services.map(s => (
+                                    <option key={s.id} value={String(s.id)}>
+                                        {s.service_name} — {s.service_date}
+                                        {s.is_active == 1 ? ' ✓ Active' : ' ✗ Closed'}
                                     </option>
                                 ))}
                             </select>
-                            <button
-                                onClick={loadServices}
-                                disabled={loadingServices}
+                            <button onClick={loadServices} disabled={loadingServices}
                                 className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-                                title="Refresh services"
-                            >
+                                title="Refresh">
                                 {loadingServices ? '⟳' : '🔄'}
                             </button>
                             {selectedService && (
-                                <button
-                                    onClick={clearSelection}
+                                <button onClick={clearSelection}
                                     className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
-                                    title="Clear selection"
-                                >
-                                    ✕
-                                </button>
+                                    title="Clear">✕</button>
                             )}
                         </div>
-                        {loadingServices && (
-                            <p className="text-xs text-gray-400 mt-1">Loading services...</p>
-                        )}
+                        {loadingServices && <p className="text-xs text-gray-400 mt-1">Loading services...</p>}
                         {selectedService && (
                             <p className="text-xs text-green-600 mt-1">
-                                ✓ Selected: {selectedService.service_name} on {selectedService.service_date}
+                                ✅ Selected: <strong>{selectedService.service_name}</strong> — {selectedService.service_date}
                             </p>
                         )}
                     </div>
 
-                    {/* Filters - Only show when service is selected */}
+                    {/* Filters + load button — only when service selected */}
                     {selectedService && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Command</label>
-                                    <select
-                                        value={filter.command}
-                                        onChange={(e) => setFilter({ ...filter, command: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    >
-                                        {commands.map(cmd => (
-                                            <option key={cmd} value={cmd}>{cmd}</option>
-                                        ))}
+                                    <select value={filter.command}
+                                        onChange={e => setFilter({ ...filter, command: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                                        {commands.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Date (Optional)</label>
-                                    <input
-                                        type="date"
-                                        value={filter.date}
-                                        onChange={(e) => setFilter({ ...filter, date: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    />
+                                    <input type="date" value={filter.date}
+                                        onChange={e => setFilter({ ...filter, date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
                                 </div>
                             </div>
-
-                            {/* Action Buttons */}
                             <div className="flex gap-3">
-                                <button
-                                    onClick={loadAttendanceReport}
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                >
+                                <button onClick={loadAttendanceReport} disabled={loading}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
                                     {loading ? 'Loading...' : 'Load Report'}
                                 </button>
                                 {(attendance.length > 0 || absentees.length > 0) && (
-                                    <button
-                                        onClick={exportToExcel}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                                    >
+                                    <button onClick={exportToExcel}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
                                         📊 Export to Excel
                                     </button>
                                 )}
@@ -307,6 +264,7 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                     )}
                 </div>
 
+                {/* Content */}
                 <div className="flex-1 overflow-y-auto p-4">
                     {!selectedService ? (
                         <div className="text-center py-12 text-gray-500">
@@ -316,146 +274,111 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                         </div>
                     ) : loading ? (
                         <div className="text-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto" />
                             <p className="text-gray-500 mt-2">Loading report...</p>
                         </div>
                     ) : attendance.length === 0 && absentees.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             <div className="text-6xl mb-4">📭</div>
                             <p className="text-lg font-medium">No records found</p>
-                            <p className="text-sm mt-2">No attendance records for this service</p>
-                            <button
-                                onClick={loadAttendanceReport}
-                                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            >
-                                Try Loading Again
+                            <button onClick={loadAttendanceReport}
+                                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                Try Again
                             </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* Statistics Cards */}
+                            {/* Stats */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                                    <p className="text-2xl font-bold text-blue-600">{stats.totalMembers}</p>
-                                    <p className="text-xs text-gray-500">Total Members</p>
-                                </div>
-                                <div className="bg-green-50 rounded-lg p-3 text-center">
-                                    <p className="text-2xl font-bold text-green-600">{stats.presentCount}</p>
-                                    <p className="text-xs text-gray-500">Present</p>
-                                </div>
-                                <div className="bg-red-50 rounded-lg p-3 text-center">
-                                    <p className="text-2xl font-bold text-red-600">{stats.absentCount}</p>
-                                    <p className="text-xs text-gray-500">Absent</p>
-                                </div>
-                                <div className="bg-purple-50 rounded-lg p-3 text-center">
-                                    <p className="text-2xl font-bold text-purple-600">{stats.percentage}%</p>
-                                    <p className="text-xs text-gray-500">Attendance Rate</p>
-                                </div>
+                                {[
+                                    { label: 'Total Members', value: stats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                    { label: 'Present', value: stats.present, color: 'text-green-600', bg: 'bg-green-50' },
+                                    { label: 'Absent', value: stats.absent, color: 'text-red-600', bg: 'bg-red-50' },
+                                    { label: 'Attendance %', value: `${stats.pct}%`, color: 'text-purple-600', bg: 'bg-purple-50' },
+                                ].map(s => (
+                                    <div key={s.label} className={`${s.bg} rounded-lg p-3 text-center`}>
+                                        <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                                        <p className="text-xs text-gray-500">{s.label}</p>
+                                    </div>
+                                ))}
                             </div>
 
-                            {/* Tab Buttons */}
+                            {/* Tabs */}
                             <div className="flex gap-2 border-b">
-                                <button
-                                    onClick={() => setShowAbsentees(false)}
-                                    className={`px-4 py-2 font-semibold transition ${!showAbsentees
-                                        ? 'border-b-2 border-red-600 text-red-600'
-                                        : 'text-gray-500 hover:text-gray-700'}`}
-                                >
+                                <button onClick={() => setShowAbsentees(false)}
+                                    className={`px-4 py-2 font-semibold transition ${!showAbsentees ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}>
                                     ✓ Present ({attendance.length})
                                 </button>
-                                <button
-                                    onClick={() => setShowAbsentees(true)}
-                                    className={`px-4 py-2 font-semibold transition ${showAbsentees
-                                        ? 'border-b-2 border-red-600 text-red-600'
-                                        : 'text-gray-500 hover:text-gray-700'}`}
-                                >
+                                <button onClick={() => setShowAbsentees(true)}
+                                    className={`px-4 py-2 font-semibold transition ${showAbsentees ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}>
                                     ✗ Absent ({absentees.length})
                                 </button>
                             </div>
 
-                            {/* Present Members Table */}
+                            {/* Present table */}
                             {!showAbsentees && attendance.length > 0 && (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-gray-50 sticky top-0">
+                                        <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-2 text-left">S/N</th>
-                                                <th className="px-4 py-2 text-left">ID Number</th>
-                                                <th className="px-4 py-2 text-left">Name</th>
-                                                <th className="px-4 py-2 text-left">Command</th>
-                                                <th className="px-4 py-2 text-left">Designation</th>
-                                                <th className="px-4 py-2 text-left">Method</th>
-                                                <th className="px-4 py-2 text-left">Time</th>
+                                                {['S/N', 'ID Number', 'Name', 'Command', 'Designation', 'Method', 'Time'].map(h => (
+                                                    <th key={h} className="px-4 py-2 text-left">{h}</th>
+                                                ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {attendance.map((record, idx) => (
-                                                <tr key={idx} className="border-b hover:bg-gray-50">
-                                                    <td className="px-4 py-2">{idx + 1}</td>
-                                                    <td className="px-4 py-2 font-mono text-xs">{record.id_number}</td>
-                                                    <td className="px-4 py-2 font-medium">{record.first_name} {record.last_name}</td>
-                                                    <td className="px-4 py-2">{record.command}</td>
-                                                    <td className="px-4 py-2">{record.designation}</td>
+                                            {attendance.map((r, i) => (
+                                                <tr key={i} className="border-b hover:bg-gray-50">
+                                                    <td className="px-4 py-2">{i + 1}</td>
+                                                    <td className="px-4 py-2 font-mono text-xs">{r.id_number}</td>
+                                                    <td className="px-4 py-2 font-medium">{r.first_name} {r.last_name}</td>
+                                                    <td className="px-4 py-2">{r.command}</td>
+                                                    <td className="px-4 py-2">{r.designation}</td>
                                                     <td className="px-4 py-2">
-                                                        <span className={`px-2 py-1 rounded-full text-xs ${record.attendance_method === 'self_scan'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-green-100 text-green-700'
-                                                            }`}>
-                                                            {record.attendance_method === 'self_scan' ? 'Self Check-in' : 'Manual Entry'}
+                                                        <span className={`px-2 py-1 rounded-full text-xs ${r.attendance_method === 'self_scan' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                            {r.attendance_method === 'self_scan' ? 'Self Check-in' : 'Manual Entry'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-2 text-xs">{new Date(record.attendance_time).toLocaleTimeString()}</td>
+                                                    <td className="px-4 py-2 text-xs">{new Date(r.attendance_time).toLocaleTimeString()}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             )}
-
-                            {/* Present Members Empty State */}
                             {!showAbsentees && attendance.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    No present members found
-                                </div>
+                                <p className="text-center py-8 text-gray-500">No present members found</p>
                             )}
 
-                            {/* Absent Members Table */}
+                            {/* Absent table */}
                             {showAbsentees && absentees.length > 0 && (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-gray-50 sticky top-0">
+                                        <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-2 text-left">S/N</th>
-                                                <th className="px-4 py-2 text-left">ID Number</th>
-                                                <th className="px-4 py-2 text-left">Name</th>
-                                                <th className="px-4 py-2 text-left">Command</th>
-                                                <th className="px-4 py-2 text-left">Designation</th>
-                                                <th className="px-4 py-2 text-left">Role</th>
-                                                <th className="px-4 py-2 text-left">Phone</th>
+                                                {['S/N', 'ID Number', 'Name', 'Command', 'Designation', 'Role', 'Phone'].map(h => (
+                                                    <th key={h} className="px-4 py-2 text-left">{h}</th>
+                                                ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {absentees.map((record, idx) => (
-                                                <tr key={idx} className="border-b hover:bg-gray-50">
-                                                    <td className="px-4 py-2">{idx + 1}</td>
-                                                    <td className="px-4 py-2 font-mono text-xs">{record.id_number}</td>
-                                                    <td className="px-4 py-2 font-medium">{record.first_name} {record.last_name}</td>
-                                                    <td className="px-4 py-2">{record.command}</td>
-                                                    <td className="px-4 py-2">{record.designation}</td>
-                                                    <td className="px-4 py-2">{record.role}</td>
-                                                    <td className="px-4 py-2">{record.phone_number || 'N/A'}</td>
+                                            {absentees.map((r, i) => (
+                                                <tr key={i} className="border-b hover:bg-gray-50">
+                                                    <td className="px-4 py-2">{i + 1}</td>
+                                                    <td className="px-4 py-2 font-mono text-xs">{r.id_number}</td>
+                                                    <td className="px-4 py-2 font-medium">{r.first_name} {r.last_name}</td>
+                                                    <td className="px-4 py-2">{r.command}</td>
+                                                    <td className="px-4 py-2">{r.designation}</td>
+                                                    <td className="px-4 py-2">{r.role}</td>
+                                                    <td className="px-4 py-2">{r.phone_number || 'N/A'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             )}
-
-                            {/* Absent Members Empty State */}
                             {showAbsentees && absentees.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    🎉 No absent members found - Perfect attendance!
-                                </div>
+                                <p className="text-center py-8 text-gray-500">🎉 Perfect attendance — no absentees!</p>
                             )}
                         </div>
                     )}

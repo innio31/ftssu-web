@@ -25,7 +25,7 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
         }
     }, [isOpen])
 
-    // Refresh services when modal opens and periodically
+    // Refresh services when modal opens
     useEffect(() => {
         if (!isOpen) return
         loadServices()
@@ -47,10 +47,15 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                 setServices(sortedServices)
 
                 // If there was a selected service, try to find it in the new data
-                if (selectedService) {
+                if (selectedService && selectedService.id) {
                     const updatedService = sortedServices.find(s => s.id === selectedService.id)
                     if (updatedService) {
                         setSelectedService(updatedService)
+                    } else {
+                        // Selected service no longer exists, clear it
+                        setSelectedService(null)
+                        setAttendance([])
+                        setAbsentees([])
                     }
                 }
             }
@@ -83,13 +88,8 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
 
             if (data.success) {
                 setAttendance(data.attendance || [])
-                // Store absentees data if provided by API
-                if (data.absentees) {
-                    setAbsentees(data.absentees)
-                } else {
-                    // If API doesn't provide absentees, we'll need to fetch them separately
-                    await loadAbsentees()
-                }
+                // Load absentees after getting attendance
+                await loadAbsentees()
             } else {
                 alert(data.message || 'Failed to load attendance report')
             }
@@ -169,9 +169,28 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
         return { totalMembers, presentCount, absentCount, percentage }
     }
 
-    const handleServiceSelect = (serviceId) => {
+    // FIXED: Handle service selection with proper number conversion
+    const handleServiceSelect = (e) => {
+        const serviceId = e.target.value
+        if (!serviceId) {
+            setSelectedService(null)
+            setAttendance([])
+            setAbsentees([])
+            return
+        }
+
+        // Convert to number and find the service
         const service = services.find(s => s.id === parseInt(serviceId))
+        console.log('Selected service:', service) // Debug log
         setSelectedService(service || null)
+        setAttendance([])
+        setAbsentees([])
+        setShowAbsentees(false)
+    }
+
+    // Clear selection handler
+    const clearSelection = () => {
+        setSelectedService(null)
         setAttendance([])
         setAbsentees([])
         setShowAbsentees(false)
@@ -200,93 +219,117 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                         <div className="flex gap-2">
                             <select
                                 value={selectedService?.id || ''}
-                                onChange={(e) => handleServiceSelect(e.target.value)}
+                                onChange={handleServiceSelect}
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                             >
-                                <option value="">Choose a service...</option>
+                                <option value="">-- Choose a service --</option>
                                 {services.map(service => (
                                     <option key={service.id} value={service.id}>
                                         {service.service_name} - {service.service_date}
-                                        {service.is_active == 1 ? ' (Active)' : ' (Closed)'}
+                                        {service.is_active == 1 ? ' (✓ Active)' : ' (✗ Closed)'}
                                     </option>
                                 ))}
                             </select>
                             <button
                                 onClick={loadServices}
                                 disabled={loadingServices}
-                                className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                                className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                                 title="Refresh services"
                             >
-                                🔄
+                                {loadingServices ? '⟳' : '🔄'}
                             </button>
+                            {selectedService && (
+                                <button
+                                    onClick={clearSelection}
+                                    className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                                    title="Clear selection"
+                                >
+                                    ✕
+                                </button>
+                            )}
                         </div>
                         {loadingServices && (
                             <p className="text-xs text-gray-400 mt-1">Loading services...</p>
                         )}
+                        {selectedService && (
+                            <p className="text-xs text-green-600 mt-1">
+                                ✓ Selected: {selectedService.service_name} on {selectedService.service_date}
+                            </p>
+                        )}
                     </div>
 
-                    {/* Filters */}
+                    {/* Filters - Only show when service is selected */}
                     {selectedService && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Command</label>
-                                <select
-                                    value={filter.command}
-                                    onChange={(e) => setFilter({ ...filter, command: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                >
-                                    {commands.map(cmd => (
-                                        <option key={cmd} value={cmd}>{cmd}</option>
-                                    ))}
-                                </select>
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Command</label>
+                                    <select
+                                        value={filter.command}
+                                        onChange={(e) => setFilter({ ...filter, command: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    >
+                                        {commands.map(cmd => (
+                                            <option key={cmd} value={cmd}>{cmd}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Date (Optional)</label>
+                                    <input
+                                        type="date"
+                                        value={filter.date}
+                                        onChange={(e) => setFilter({ ...filter, date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Date (Optional)</label>
-                                <input
-                                    type="date"
-                                    value={filter.date}
-                                    onChange={(e) => setFilter({ ...filter, date: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                                />
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Action Buttons */}
-                    {selectedService && (
-                        <div className="flex gap-3">
-                            <button
-                                onClick={loadAttendanceReport}
-                                disabled={loading}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                            >
-                                {loading ? 'Loading...' : 'Load Report'}
-                            </button>
-                            {(attendance.length > 0 || absentees.length > 0) && (
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
                                 <button
-                                    onClick={exportToExcel}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                    onClick={loadAttendanceReport}
+                                    disabled={loading}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                 >
-                                    📊 Export to Excel
+                                    {loading ? 'Loading...' : 'Load Report'}
                                 </button>
-                            )}
-                        </div>
+                                {(attendance.length > 0 || absentees.length > 0) && (
+                                    <button
+                                        onClick={exportToExcel}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                    >
+                                        📊 Export to Excel
+                                    </button>
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
-                    {loading ? (
+                    {!selectedService ? (
+                        <div className="text-center py-12 text-gray-500">
+                            <div className="text-6xl mb-4">📅</div>
+                            <p className="text-lg font-medium">Select a service to view attendance report</p>
+                            <p className="text-sm mt-2">Choose from the dropdown above</p>
+                        </div>
+                    ) : loading ? (
                         <div className="text-center py-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
                             <p className="text-gray-500 mt-2">Loading report...</p>
                         </div>
-                    ) : !selectedService ? (
-                        <div className="text-center py-8 text-gray-500">
-                            Select a service to view attendance report
-                        </div>
                     ) : attendance.length === 0 && absentees.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            No attendance records found for this service
+                        <div className="text-center py-12 text-gray-500">
+                            <div className="text-6xl mb-4">📭</div>
+                            <p className="text-lg font-medium">No records found</p>
+                            <p className="text-sm mt-2">No attendance records for this service</p>
+                            <button
+                                onClick={loadAttendanceReport}
+                                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                                Try Loading Again
+                            </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -318,7 +361,7 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                                         ? 'border-b-2 border-red-600 text-red-600'
                                         : 'text-gray-500 hover:text-gray-700'}`}
                                 >
-                                    Present ({attendance.length})
+                                    ✓ Present ({attendance.length})
                                 </button>
                                 <button
                                     onClick={() => setShowAbsentees(true)}
@@ -326,7 +369,7 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                                         ? 'border-b-2 border-red-600 text-red-600'
                                         : 'text-gray-500 hover:text-gray-700'}`}
                                 >
-                                    Absent ({absentees.length})
+                                    ✗ Absent ({absentees.length})
                                 </button>
                             </div>
 
@@ -411,7 +454,7 @@ export default function AttendanceReportModal({ isOpen, onClose, member }) {
                             {/* Absent Members Empty State */}
                             {showAbsentees && absentees.length === 0 && (
                                 <div className="text-center py-8 text-gray-500">
-                                    No absent members found - Perfect attendance! 🎉
+                                    🎉 No absent members found - Perfect attendance!
                                 </div>
                             )}
                         </div>

@@ -16,7 +16,6 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('announcements')
 
-
     useEffect(() => {
         const stored = localStorage.getItem('ftssu_member')
         if (!stored) {
@@ -1141,15 +1140,6 @@ function AttendanceTab({ member }) {
                 onClose={() => setShowReportModal(false)}
                 member={member}
             />
-            <CreateServiceModal
-                isOpen={showCreateService}
-                onClose={() => setShowCreateService(false)}
-                onSuccess={(newService) => {
-                    // Refresh your services list after creation
-                    loadActiveServices()
-                    console.log('[Dashboard] New service created:', newService)
-                }}
-            />
         </div>
     )
 }
@@ -1524,11 +1514,8 @@ function ITAdminTab({ member }) {
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-gray-800 text-lg">Service Management</h3>
-                        <button
-                            onClick={() => setShowCreateService(true)}
-                            className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition flex items-center justify-center gap-2"
-                        >
-                            <span>➕</span> Create New Service
+                        <button onClick={() => setShowCreateService(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                            + Create Service
                         </button>
                     </div>
 

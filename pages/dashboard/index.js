@@ -9,6 +9,7 @@ import NotificationBell from '../../components/NotificationBell'
 import EvangelismTab from '../../components/EvangelismTab';
 import PostingAlert from '../../components/PostingAlert';
 import AdminReportGenerator from '../../components/AdminReportGenerator';
+import WeeklyReportForm from '../../components/WeeklyReportForm';
 
 export default function Dashboard() {
     const router = useRouter()
@@ -96,7 +97,6 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* RIGHT SIDE: Bell + Logout */}
                     <div className="flex items-center gap-2">
                         <NotificationBell member={member} />
                         <button onClick={handleLogout} className="bg-red-800 px-4 py-2 rounded-lg text-sm hover:bg-red-900 transition">
@@ -107,10 +107,8 @@ export default function Dashboard() {
             </div>
             <PostingAlert member={member} />
 
-            {/* Main Content */}
             <div className="p-4">
-
-                {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} member={member} />}
+                {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} member={member} router={router} />}
                 {activeTab === 'store' && <StoreTab member={member} onNavigate={(path) => router.push(path)} />}
                 {activeTab === 'orders' && <OrdersTab member={member} />}
                 {activeTab === 'profile' && <ProfileTab member={member} onUpdate={(updatedMember) => {
@@ -124,7 +122,7 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* Bottom Navigation - Flex Layout (better for variable button counts) */}
+            {/* Bottom Navigation */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                 <div className="flex flex-wrap justify-around gap-1 p-2">
                     <button onClick={() => setActiveTab('announcements')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
@@ -150,11 +148,7 @@ export default function Dashboard() {
                         <span className="text-xs mt-1 font-medium">Profile</span>
                     </button>
                     {(member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
-                        <button
-                            onClick={() => setActiveTab('evangelism')}
-                            className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'
-                                }`}
-                        >
+                        <button onClick={() => setActiveTab('evangelism')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">✝️</span>
                             <span className="text-xs mt-1 font-medium">Evangelism</span>
                         </button>
@@ -165,7 +159,6 @@ export default function Dashboard() {
                             <span className="text-xs mt-1 font-medium">Admin</span>
                         </button>
                     )}
-                    {/* Acct Admin Tab - For Accountant and Acct Admin roles */}
                     {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'ITAdmin') && (
                         <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
                             <span className="text-2xl">💰</span>
@@ -178,26 +171,23 @@ export default function Dashboard() {
     )
 }
 
-// ============= SNIPPET 3: UPDATED ANNOUNCEMENTS TAB with Birthdays and Real-time Updates =============
-function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRoleColor, member }) {
+// ============= ANNOUNCEMENTS TAB with Birthdays and Real-time Updates =============
+function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRoleColor, member, router }) {
     const [birthdays, setBirthdays] = useState([]);
     const [localAnnouncements, setLocalAnnouncements] = useState([]);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Fetch birthdays
     useEffect(() => {
         fetchBirthdays();
     }, []);
 
-    // Fetch announcements directly - with cache busting
     const fetchAnnouncements = async () => {
         setIsRefreshing(true);
         try {
             const response = await fetch(`/api/get_announcements.php?_=${Date.now()}`);
             const data = await response.json();
             if (data.success && data.announcements) {
-                // Sort: pinned first, then by date (newest first)
                 const sorted = data.announcements.sort((a, b) => {
                     if (a.is_pinned === b.is_pinned) {
                         return new Date(b.created_at) - new Date(a.created_at);
@@ -205,10 +195,10 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                     return a.is_pinned === 1 ? -1 : 1;
                 });
                 setLocalAnnouncements(sorted);
+                setLastRefresh(Date.now());
             }
         } catch (error) {
             console.error('Error loading announcements:', error);
-            // Fallback to props if fetch fails
             if (propAnnouncements && propAnnouncements.length > 0) {
                 setLocalAnnouncements(propAnnouncements);
             }
@@ -227,26 +217,21 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         }
     };
 
-    // Initial load and refresh when prop announcements change
     useEffect(() => {
         fetchAnnouncements();
-    }, [propAnnouncements]); // Re-fetch when prop announcements change
+    }, [propAnnouncements]);
 
-    // Set up auto-refresh every 30 seconds
     useEffect(() => {
         const interval = setInterval(() => {
             fetchAnnouncements();
             fetchBirthdays();
-        }, 30000); // Refresh every 30 seconds
-
+        }, 30000);
         return () => clearInterval(interval);
     }, []);
 
-    // Refresh when tab becomes visible (using visibility API)
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (!document.hidden) {
-                // Tab became visible, refresh data
                 fetchAnnouncements();
                 fetchBirthdays();
             }
@@ -255,27 +240,22 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
-    // Build mixed feed: birthday card first (if any), then announcements
-    const feed = [
-        ...(birthdays.length > 0 ? [{ type: 'birthday', birthdays }] : []),
-        ...localAnnouncements.map(a => ({ type: 'announcement', ...a }))
-    ];
-
-    // Manual refresh handler
     const handleManualRefresh = () => {
         fetchAnnouncements();
         fetchBirthdays();
     };
+
+    const feed = [
+        ...(birthdays.length > 0 ? [{ type: 'birthday', birthdays }] : []),
+        ...localAnnouncements.map(a => ({ type: 'announcement', ...a }))
+    ];
 
     if (feed.length === 0 && !isRefreshing) {
         return (
             <div className="text-center py-10">
                 <p className="text-4xl mb-3">📭</p>
                 <p className="text-gray-500">No announcements yet</p>
-                <button
-                    onClick={handleManualRefresh}
-                    className="mt-4 text-sm text-red-600 hover:text-red-800 flex items-center gap-1 mx-auto"
-                >
+                <button onClick={handleManualRefresh} className="mt-4 text-sm text-red-600 hover:text-red-800 flex items-center gap-1 mx-auto">
                     🔄 Refresh
                 </button>
             </div>
@@ -298,6 +278,7 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
             </button>
+
             {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES */}
             {(['IT Admin', 'Alpha Gulf Serial', 'Gulf Serial', 'Senior Commander I', 'Senior Commander II', 'Secretary'].includes(member?.role)) && (
                 <button
@@ -314,84 +295,51 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                     </svg>
                 </button>
             )}
-            {/* Refresh indicator and button */}
+
             <div className="flex justify-between items-center mb-2">
                 <div className="text-xs text-gray-400">
                     {isRefreshing ? 'Updating...' : `Last updated: ${new Date(lastRefresh).toLocaleTimeString()}`}
                 </div>
-                <button
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing}
-                    className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 disabled:opacity-50"
-                >
+                <button onClick={handleManualRefresh} disabled={isRefreshing} className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 disabled:opacity-50">
                     <span className="text-sm">🔄</span> Refresh
                 </button>
             </div>
 
             {feed.map((item, index) => {
-                // ---- Birthday Card ----
                 if (item.type === 'birthday') {
                     return (
                         <div key="birthday-card" className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl shadow-md overflow-hidden">
                             <div className="p-4">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="text-2xl">🎂</span>
-                                    <h3 className="font-bold text-white text-lg">
-                                        Birthday{item.birthdays.length > 1 ? 's' : ''} Today!
-                                    </h3>
+                                    <h3 className="font-bold text-white text-lg">Birthday{item.birthdays.length > 1 ? 's' : ''} Today!</h3>
                                 </div>
-
                                 <div className="space-y-3">
                                     {item.birthdays.map((b, i) => (
                                         <div key={i} className="bg-white/25 rounded-lg p-3 flex items-center gap-3">
-                                            {/* Profile picture */}
                                             {b.profile_picture ? (
-                                                <img
-                                                    src={b.profile_picture}
-                                                    alt={b.name}
-                                                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                        e.target.nextSibling.style.display = 'flex';
-                                                    }}
-                                                />
+                                                <img src={b.profile_picture} alt={b.name} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                                             ) : null}
-                                            {/* Fallback avatar */}
-                                            <div
-                                                className="w-12 h-12 rounded-full bg-white/40 border-2 border-white flex items-center justify-center text-white font-bold text-lg"
-                                                style={{ display: b.profile_picture ? 'none' : 'flex' }}
-                                            >
+                                            <div className="w-12 h-12 rounded-full bg-white/40 border-2 border-white flex items-center justify-center text-white font-bold text-lg" style={{ display: b.profile_picture ? 'none' : 'flex' }}>
                                                 {b.name.charAt(0)}
                                             </div>
-
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-white text-sm truncate">{b.name}</p>
                                                 <p className="text-yellow-100 text-xs">{b.command}</p>
                                             </div>
-
-                                            <div className="text-center">
-                                                <p className="text-white text-xl">🎉</p>
-                                            </div>
+                                            <div className="text-center"><p className="text-white text-xl">🎉</p></div>
                                         </div>
                                     ))}
                                 </div>
-
-                                <p className="text-yellow-100 text-xs text-center mt-3">
-                                    Wishing {item.birthdays.length > 1 ? 'them' : 'them'} a blessed birthday! 🙏
-                                </p>
+                                <p className="text-yellow-100 text-xs text-center mt-3">Wishing them a blessed birthday! 🙏</p>
                             </div>
                         </div>
                     );
                 }
 
-                // ---- Announcement Card ----
                 return (
                     <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.is_pinned == 1 ? 'border-red-300' : 'border-gray-100'}`}>
-                        {item.is_pinned == 1 && (
-                            <div className="bg-red-50 px-4 py-1 border-b border-red-200">
-                                <span className="text-red-600 text-xs font-semibold">📌 Pinned</span>
-                            </div>
-                        )}
+                        {item.is_pinned == 1 && <div className="bg-red-50 px-4 py-1 border-b border-red-200"><span className="text-red-600 text-xs font-semibold">📌 Pinned</span></div>}
                         <div className="p-4">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="font-bold text-gray-800 flex-1 pr-2">{item.title}</h3>
@@ -399,8 +347,7 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                             </div>
                             <p className="text-gray-600 text-sm leading-relaxed">{item.content}</p>
                             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                                <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium"
-                                    style={{ backgroundColor: getRoleColor(item.author_role) }}>
+                                <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium" style={{ backgroundColor: getRoleColor(item.author_role) }}>
                                     {item.author_role}
                                 </span>
                                 <span className="text-xs text-gray-500">{item.author}</span>
@@ -556,7 +503,6 @@ function StoreTab({ member, onNavigate }) {
                 setShowPayment(false)
                 alert(`Order #${result.order_number} recorded!`)
 
-                // SNIPPET 5: Send push notification for new order
                 try {
                     await fetch('/api/send_push.php', {
                         method: 'POST',
@@ -588,9 +534,7 @@ function StoreTab({ member, onNavigate }) {
     if (showCart) {
         return (
             <div>
-                <button onClick={() => setShowCart(false)} className="mb-4 text-red-600 font-semibold">
-                    ← Back to Store
-                </button>
+                <button onClick={() => setShowCart(false)} className="mb-4 text-red-600 font-semibold">← Back to Store</button>
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <h2 className="text-xl font-bold mb-4">Your Cart ({cart.length} items)</h2>
                     {cart.length === 0 ? (
@@ -602,20 +546,12 @@ function StoreTab({ member, onNavigate }) {
                                     <div>
                                         <h3 className="font-semibold">{item.name}</h3>
                                         <p className="text-sm text-gray-600">
-                                            {item.has_custom_price
-                                                ? `Amount: ${formatPrice(item.customAmount)}`
-                                                : `${item.quantity} × ${formatPrice(item.price)}`}
+                                            {item.has_custom_price ? `Amount: ${formatPrice(item.customAmount)}` : `${item.quantity} × ${formatPrice(item.price)}`}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <p className="font-bold text-red-600">
-                                            {item.has_custom_price
-                                                ? formatPrice(item.customAmount)
-                                                : formatPrice(item.price * item.quantity)}
-                                        </p>
-                                        <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-xl">
-                                            🗑️
-                                        </button>
+                                        <p className="font-bold text-red-600">{item.has_custom_price ? formatPrice(item.customAmount) : formatPrice(item.price * item.quantity)}</p>
+                                        <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-xl">🗑️</button>
                                     </div>
                                 </div>
                             ))}
@@ -625,9 +561,7 @@ function StoreTab({ member, onNavigate }) {
                                     <span className="text-red-600">{formatPrice(getTotalPrice())}</span>
                                 </div>
                                 {!showPayment ? (
-                                    <button onClick={() => setShowPayment(true)} className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold">
-                                        Proceed to Payment →
-                                    </button>
+                                    <button onClick={() => setShowPayment(true)} className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold">Proceed to Payment →</button>
                                 ) : (
                                     <div>
                                         <div className="bg-gray-50 p-4 rounded-lg mb-4">
@@ -636,9 +570,7 @@ function StoreTab({ member, onNavigate }) {
                                             <p><strong>Bank:</strong> Covenant Microfinance Bank</p>
                                             <p><strong>Account Name:</strong> Faith Tabernacle Security Service Group</p>
                                         </div>
-                                        <button onClick={saveOrder} className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold">
-                                            Confirm Payment & Send on WhatsApp
-                                        </button>
+                                        <button onClick={saveOrder} className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold">Confirm Payment & Send on WhatsApp</button>
                                     </div>
                                 )}
                             </div>
@@ -653,13 +585,8 @@ function StoreTab({ member, onNavigate }) {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800">🛍️ Store</h2>
-                {cart.length > 0 && (
-                    <button onClick={() => setShowCart(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                        🛒 Cart ({cart.length})
-                    </button>
-                )}
+                {cart.length > 0 && (<button onClick={() => setShowCart(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">🛒 Cart ({cart.length})</button>)}
             </div>
-
             <div className="grid grid-cols-1 gap-4">
                 {products.map((product) => (
                     <div key={product.id} className="bg-white rounded-xl shadow-md p-5">
@@ -669,35 +596,15 @@ function StoreTab({ member, onNavigate }) {
                         ) : (
                             <p className="text-red-600 text-sm mt-1 italic">💝 Give what's in your heart</p>
                         )}
-                        {product.description && (
-                            <p className="text-gray-500 text-sm mb-3">{product.description}</p>
-                        )}
+                        {product.description && (<p className="text-gray-500 text-sm mb-3">{product.description}</p>)}
                         <div className="flex gap-3">
-                            <input
-                                type="number"
-                                value={quantities[product.id] || 0}
-                                onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)}
-                                min="0"
-                                step={product.has_custom_price ? "100" : "1"}
-                                placeholder={product.has_custom_price ? "Amount" : "Qty"}
-                                className="w-24 px-3 py-2 border rounded-lg text-center"
-                            />
-                            <button
-                                onClick={() => addToCart(product)}
-                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700"
-                            >
-                                Add to Cart
-                            </button>
+                            <input type="number" value={quantities[product.id] || 0} onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)} min="0" step={product.has_custom_price ? "100" : "1"} placeholder={product.has_custom_price ? "Amount" : "Qty"} className="w-24 px-3 py-2 border rounded-lg text-center" />
+                            <button onClick={() => addToCart(product)} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">Add to Cart</button>
                         </div>
                     </div>
                 ))}
             </div>
-
-            {products.length === 0 && (
-                <div className="text-center py-8">
-                    <p className="text-gray-500">No products available</p>
-                </div>
-            )}
+            {products.length === 0 && (<div className="text-center py-8"><p className="text-gray-500">No products available</p></div>)}
         </div>
     )
 }
@@ -784,7 +691,6 @@ function ProfileTab({ member, onUpdate }) {
 
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Not set'
 
-    // Listen for beforeinstallprompt event
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
             e.preventDefault();
@@ -812,26 +718,19 @@ function ProfileTab({ member, onUpdate }) {
     }
 
     const handleUpdateProfile = async () => {
-        // Validate phone number only if it has content
         if (editedData.phone_number && editedData.phone_number.length !== 11 && editedData.phone_number.length > 0) {
             alert('Phone number must be exactly 11 digits')
             return
         }
 
-        // Prepare update data - send all fields that could be updated
-        const updateData = {
-            id: member.id
-        }
+        const updateData = { id: member.id }
 
-        // Only include fields that have changed
         if (editedData.phone_number !== profile?.phone_number && editedData.phone_number) {
             updateData.phone_number = editedData.phone_number
         }
-
         if (editedData.email !== profile?.email) {
             updateData.email = editedData.email
         }
-
         if (editedData.date_of_birth !== profile?.date_of_birth && editedData.date_of_birth) {
             updateData.date_of_birth = editedData.date_of_birth
         }
@@ -842,31 +741,14 @@ function ProfileTab({ member, onUpdate }) {
             return
         }
 
-        console.log('Sending update data:', updateData)
         setLoading(true)
-
         try {
             const response = await fetch('/api/update_member.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData),
             })
-
-            const textResponse = await response.text()
-            console.log('Raw response:', textResponse)
-
-            let data
-            try {
-                data = JSON.parse(textResponse)
-            } catch (e) {
-                console.error('JSON parse error:', e)
-                alert('Server returned invalid response. Check console for details.')
-                setLoading(false)
-                return
-            }
-
-            console.log('Parsed response:', data)
-
+            const data = await response.json()
             if (data.success) {
                 const updatedMember = { ...profile, ...updateData }
                 setProfile(updatedMember)
@@ -924,7 +806,6 @@ function ProfileTab({ member, onUpdate }) {
                         <div className="border-b pb-3"><p className="text-xs text-gray-500 uppercase font-semibold">Email</p>{editing ? <input type="email" value={editedData.email} onChange={(e) => setEditedData({ ...editedData, email: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-lg" /> : <p className="text-gray-800 font-medium">{profile?.email || 'Not set'}</p>}</div>
                     </div>
                     {editing && (<div className="flex gap-3 mt-6"><button onClick={() => { setEditing(false); setEditedData({ phone_number: profile?.phone_number || '', email: profile?.email || '', date_of_birth: profile?.date_of_birth || '' }) }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg">Cancel</button><button onClick={handleUpdateProfile} disabled={loading} className="flex-1 bg-red-600 text-white py-2 rounded-lg disabled:opacity-50">{loading ? 'Saving...' : 'Save Changes'}</button></div>)}
-
                     {!showPasswordForm ? (
                         <button onClick={() => setShowPasswordForm(true)} className="w-full mt-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">🔑 Change Password</button>
                     ) : (
@@ -940,48 +821,24 @@ function ProfileTab({ member, onUpdate }) {
                             </div>
                         </div>
                     )}
-
-                    {/* Install App Section - Visible even before Chrome triggers prompt */}
                     <div className="mt-6 pt-4 border-t">
-                        <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span>📱</span> Install App
-                        </h4>
+                        <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><span>📱</span> Install App</h4>
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 text-white">
-                            <p className="text-sm mb-3">
-                                {window.matchMedia('(display-mode: standalone)').matches
-                                    ? '✓ App is installed on your device!'
-                                    : 'Install FTSSU on your device for quick access!'
-                                }
-                            </p>
+                            <p className="text-sm mb-3">{window.matchMedia('(display-mode: standalone)').matches ? '✓ App is installed on your device!' : 'Install FTSSU on your device for quick access!'}</p>
                             {!window.matchMedia('(display-mode: standalone)').matches && (
                                 <>
-                                    <button
-                                        onClick={() => {
-                                            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                                            const isAndroid = /Android/.test(navigator.userAgent);
-
-                                            if (window.deferredPrompt) {
-                                                window.deferredPrompt.prompt();
-                                            } else if (isIOS) {
-                                                alert('📱 To install on iPhone/iPad:\n\n1. Tap the Share button (📤)\n2. Scroll down\n3. Tap "Add to Home Screen"\n4. Tap "Add"');
-                                            } else if (isAndroid) {
-                                                alert('📱 To install on Android:\n\n1. Tap the Chrome menu (⋮)\n2. Tap "Install app"\n3. Tap "Install"');
-                                            } else {
-                                                alert('💻 To install on Desktop:\n\nLook for the install icon (➕) in the address bar');
-                                            }
-                                        }}
-                                        className="w-full bg-white text-blue-600 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
-                                    >
+                                    <button onClick={() => {
+                                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                                        const isAndroid = /Android/.test(navigator.userAgent);
+                                        if (window.deferredPrompt) { window.deferredPrompt.prompt(); }
+                                        else if (isIOS) { alert('📱 To install on iPhone/iPad:\n\n1. Tap the Share button (📤)\n2. Scroll down\n3. Tap "Add to Home Screen"\n4. Tap "Add"'); }
+                                        else if (isAndroid) { alert('📱 To install on Android:\n\n1. Tap the Chrome menu (⋮)\n2. Tap "Install app"\n3. Tap "Install"'); }
+                                        else { alert('💻 To install on Desktop:\n\nLook for the install icon (➕) in the address bar'); }
+                                    }} className="w-full bg-white text-blue-600 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
                                         <span className="text-xl">⬇️</span>
-                                        {window.deferredPrompt ? 'Install App Now' :
-                                            (/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'Add to Home Screen' :
-                                                (/Android/.test(navigator.userAgent) ? 'Open in Chrome to Install' : 'Install from Browser'))}
+                                        {window.deferredPrompt ? 'Install App Now' : (/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'Add to Home Screen' : (/Android/.test(navigator.userAgent) ? 'Open in Chrome to Install' : 'Install from Browser'))}
                                     </button>
-                                    <p className="text-xs text-blue-100 text-center mt-2">
-                                        {/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'Tap Share → Add to Home Screen' :
-                                            (/Android/.test(navigator.userAgent) ? 'Open Chrome, tap ⋮ → Install app' :
-                                                'Look for install icon in address bar')}
-                                    </p>
+                                    <p className="text-xs text-blue-100 text-center mt-2">{/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'Tap Share → Add to Home Screen' : (/Android/.test(navigator.userAgent) ? 'Open Chrome, tap ⋮ → Install app' : 'Look for install icon in address bar')}</p>
                                 </>
                             )}
                         </div>
@@ -1000,8 +857,6 @@ function AttendanceTab({ member }) {
     const [showAttendanceModal, setShowAttendanceModal] = useState(false)
     const [showReportModal, setShowReportModal] = useState(false)
     const [loading, setLoading] = useState(true)
-
-    // New state variables for command reports
     const [showReportForm, setShowReportForm] = useState(false)
     const [showReportHistory, setShowReportHistory] = useState(false)
     const [reportHistory, setReportHistory] = useState([])
@@ -1015,178 +870,43 @@ function AttendanceTab({ member }) {
         try {
             const response = await fetch('/api/get_active_services.php')
             const data = await response.json()
-            if (data.success) {
-                setServices(data.services || [])
-                console.log('[Attendance] Services loaded:', data.services)
-            }
-        } catch (error) {
-            console.error('[Attendance] Failed to load services:', error)
-        } finally {
-            setLoading(false)
-        }
+            if (data.success) setServices(data.services || [])
+        } catch (error) { console.error(error) } finally { setLoading(false) }
     }
 
-    // Function to load report history
     const loadReportHistory = async () => {
         try {
             const response = await fetch(`/api/get_weekly_reports.php?command=${encodeURIComponent(member.command)}`)
             const data = await response.json()
-            if (data.success) {
-                setReportHistory(data.reports)
-            }
-        } catch (error) {
-            console.error('Error loading report history:', error)
-        }
+            if (data.success) setReportHistory(data.reports)
+        } catch (error) { console.error(error) }
     }
 
-    // FIX: compare as strings to avoid parseInt mismatch
-    const handleServiceChange = (e) => {
-        const val = e.target.value
-        console.log('[Attendance] Selected value:', val)
-        if (!val) {
-            setSelectedService(null)
-            return
-        }
-        // Compare both as strings — avoids int/string mismatch from API
-        const found = services.find(s => String(s.id) === String(val))
-        console.log('[Attendance] Found service:', found)
-        setSelectedService(found || null)
-    }
-
-    const formatDate = (dateStr) =>
-        new Date(dateStr).toLocaleDateString('en-NG', {
-            day: '2-digit', month: 'short', year: 'numeric'
-        })
+    const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })
 
     if (loading) return <div className="text-center py-8">Loading...</div>
 
     return (
         <div>
             <h2 className="text-xl font-bold text-gray-800 mb-4">📅 Attendance</h2>
-
-            {/* Take Attendance — visible to Secretary, SCI, SCII, Admin */}
             {canTakeAttendance && (
                 <>
                     <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-6 text-white mb-6">
                         <h3 className="text-lg font-bold mb-2">📝 Take Attendance</h3>
-                        <p className="text-red-100 text-sm mb-4">
-                            Record attendance for members in {member.command} command
-                        </p>
-
-                        {services.length === 0 ? (
-                            <p className="text-red-200 text-sm text-center py-2">
-                                No active services available
-                            </p>
-                        ) : (
-                            <>
-                                <select
-                                    value={selectedService ? String(selectedService.id) : ''}
-                                    onChange={handleServiceChange}
-                                    className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-300"
-                                >
-                                    <option value="">-- Select a Service --</option>
-                                    {services.map(service => (
-                                        <option key={service.id} value={String(service.id)}>
-                                            {service.service_name} — {formatDate(service.service_date)}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {selectedService && (
-                                    <p className="text-red-100 text-xs mb-3">
-                                        ✅ Selected: {selectedService.service_name}
-                                    </p>
-                                )}
-
-                                <button
-                                    onClick={() => setShowAttendanceModal(true)}
-                                    disabled={!selectedService}
-                                    className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                >
-                                    {selectedService ? 'Take Attendance' : 'Select a service first'}
-                                </button>
-                            </>
-                        )}
+                        <p className="text-red-100 text-sm mb-4">Record attendance for members in {member.command} command</p>
+                        <select value={selectedService?.id || ''} onChange={(e) => { const service = services.find(s => s.id === parseInt(e.target.value)); setSelectedService(service); }} className="w-full mb-3 px-3 py-2 rounded-lg text-gray-800"><option value="">Select Service</option>{services.map(service => (<option key={service.id} value={service.id}>{service.service_name} - {formatDate(service.service_date)}</option>))}</select>
+                        <button onClick={() => setShowAttendanceModal(true)} disabled={!selectedService} className="w-full bg-white text-red-600 py-2 rounded-lg font-semibold disabled:opacity-50">Take Attendance</button>
                     </div>
-
-                    {/* Weekly Command Report Buttons */}
                     <div className="space-y-3 mb-6">
-                        <button
-                            onClick={() => {
-                                setShowReportForm(true)
-                                setShowReportHistory(false)
-                            }}
-                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition"
-                        >
-                            📝 Submit Weekly Command Report
-                        </button>
-                        <button
-                            onClick={() => {
-                                setShowReportHistory(true)
-                                setShowReportForm(false)
-                                loadReportHistory()
-                            }}
-                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
-                        >
-                            📊 View Report History
-                        </button>
+                        <button onClick={() => { setShowReportForm(true); setShowReportHistory(false); }} className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700">📝 Submit Weekly Command Report</button>
+                        <button onClick={() => { setShowReportHistory(true); setShowReportForm(false); loadReportHistory(); }} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">📊 View Report History</button>
                     </div>
                 </>
             )}
-
-            {/* Active Services list */}
-            {services.length > 0 && (
-                <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                    <h3 className="font-bold text-gray-800 mb-3">Active Services</h3>
-                    {services.map(service => (
-                        <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
-                            <div>
-                                <p className="font-semibold">{service.service_name}</p>
-                                <p className="text-xs text-gray-500">
-                                    {formatDate(service.service_date)} at {service.start_time}
-                                </p>
-                            </div>
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                                Active
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Reports — visible to GC, AGC, GS, AGS, Admin, IT Admin */}
-            {canViewReports && (
-                <div className="bg-white rounded-xl shadow-md p-6">
-                    <h3 className="font-bold text-gray-800 mb-2">📊 Attendance Reports</h3>
-                    <p className="text-sm text-gray-500 mb-4">View and export attendance records</p>
-                    <button
-                        onClick={() => setShowReportModal(true)}
-                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-                    >
-                        View Reports
-                    </button>
-                </div>
-            )}
-
-            {/* Modals */}
-            <AttendanceModal
-                isOpen={showAttendanceModal}
-                onClose={() => {
-                    setShowAttendanceModal(false)
-                    setSelectedService(null)
-                }}
-                member={member}
-                service={selectedService}
-                onSuccess={loadActiveServices}
-            />
-
-            <AttendanceReportModal
-                isOpen={showReportModal}
-                onClose={() => setShowReportModal(false)}
-                member={member}
-            />
-
-            {/* Weekly Report Form Modal */}
+            {services.length > 0 && (<div className="bg-white rounded-xl shadow-md p-6 mb-6"><h3 className="font-bold text-gray-800 mb-3">Active Services</h3>{services.map(service => (<div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2"><div><p className="font-semibold">{service.service_name}</p><p className="text-xs text-gray-500">{formatDate(service.service_date)} at {service.start_time}</p></div><span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span></div>))}</div>)}
+            {canViewReports && (<div className="bg-white rounded-xl shadow-md p-6"><h3 className="font-bold text-gray-800 mb-2">📊 Attendance Reports</h3><p className="text-sm text-gray-500 mb-4">View and export attendance records</p><button onClick={() => setShowReportModal(true)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold">View Reports</button></div>)}
+            <AttendanceModal isOpen={showAttendanceModal} onClose={() => { setShowAttendanceModal(false); setSelectedService(null) }} member={member} service={selectedService} onSuccess={loadActiveServices} />
+            <AttendanceReportModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} member={member} />
             {showReportForm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowReportForm(false)}>
                     <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1195,20 +915,11 @@ function AttendanceTab({ member }) {
                             <button onClick={() => setShowReportForm(false)} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
                         </div>
                         <div className="p-6">
-                            <WeeklyReportForm
-                                member={member}
-                                onSuccess={() => {
-                                    setShowReportForm(false)
-                                    alert('Report submitted successfully!')
-                                }}
-                                onCancel={() => setShowReportForm(false)}
-                            />
+                            <WeeklyReportForm member={member} onSuccess={() => { setShowReportForm(false); alert('Report submitted successfully!'); loadReportHistory(); }} onCancel={() => setShowReportForm(false)} />
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* Report History Modal */}
             {showReportHistory && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowReportHistory(false)}>
                     <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1217,9 +928,7 @@ function AttendanceTab({ member }) {
                             <button onClick={() => setShowReportHistory(false)} className="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
                         </div>
                         <div className="p-6">
-                            {reportHistory.length === 0 ? (
-                                <p className="text-center text-gray-500">No reports submitted yet</p>
-                            ) : (
+                            {reportHistory.length === 0 ? (<p className="text-center text-gray-500">No reports submitted yet</p>) : (
                                 <div className="space-y-4">
                                     {reportHistory.map(report => (
                                         <div key={report.id} className="border rounded-lg p-4 hover:shadow-md transition">
@@ -1228,21 +937,10 @@ function AttendanceTab({ member }) {
                                                     <p className="font-bold text-gray-800">Date: {report.report_date}</p>
                                                     <p className="text-sm text-gray-600 mt-1">Service: {report.type_of_service}</p>
                                                     <p className="text-sm text-gray-600">Location: {report.location_served}</p>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        Attendance: 1st: {report.service_1_attendance},
-                                                        2nd: {report.service_2_attendance},
-                                                        3rd: {report.service_3_attendance}
-                                                    </p>
-                                                    <p className="text-sm font-semibold text-blue-600 mt-1">
-                                                        Average: {report.average_attendance}%
-                                                    </p>
+                                                    <p className="text-sm text-gray-600 mt-1">Attendance: 1st: {report.service_1_attendance}, 2nd: {report.service_2_attendance}, 3rd: {report.service_3_attendance}</p>
+                                                    <p className="text-sm font-semibold text-blue-600 mt-1">Average: {report.average_attendance}%</p>
                                                 </div>
-                                                <button
-                                                    onClick={() => window.open(`/api/generate_report_pdf.php?id=${report.id}`, '_blank')}
-                                                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition ml-4"
-                                                >
-                                                    View PDF
-                                                </button>
+                                                <button onClick={() => window.open(`/api/generate_report_pdf.php?id=${report.id}`, '_blank')} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition ml-4">View PDF</button>
                                             </div>
                                         </div>
                                     ))}
@@ -1256,6 +954,11 @@ function AttendanceTab({ member }) {
     )
 }
 
+// ============= IT ADMIN TAB - Keep as is (too long to duplicate, but ensure it has weekly_reports subtab) =============
+// [ITAdminTab function remains the same as in your file - it already includes weekly_reports subtab]
+
+// ============= ACCT ADMIN TAB - Keep as is =============
+// [AcctAdminTab function remains the same as in your file]
 // ============= IT ADMIN TAB with Subtabs =============
 function ITAdminTab({ member }) {
     const [adminSubTab, setAdminSubTab] = useState('services')

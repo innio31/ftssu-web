@@ -108,36 +108,7 @@ export default function Dashboard() {
 
             {/* Main Content */}
             <div className="p-4">
-                {/* ROSTER LINK - Visible to ALL members */}
-                <button
-                    onClick={() => router.push('/roster')}
-                    className="w-full mb-4 flex items-center gap-3 bg-white border border-red-200 rounded-xl p-4 shadow-sm hover:bg-red-50 transition"
-                >
-                    <span className="text-2xl">📋</span>
-                    <div className="text-left flex-1">
-                        <p className="font-bold text-gray-800 text-sm">Posting Roster</p>
-                        <p className="text-xs text-gray-400">Locations, schedule & dress codes</p>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
-                {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES */}
-                {(['IT Admin', 'Alpha Gulf Serial', 'Gulf Serial', 'Senior Commander I', 'Senior Commander II', 'Secretary'].includes(member?.role)) && (
-                    <button
-                        onClick={() => router.push('/evangelism-report')}
-                        className="w-full mb-4 flex items-center gap-3 bg-white border border-green-200 rounded-xl p-4 shadow-sm hover:bg-green-50 transition"
-                    >
-                        <span className="text-2xl">✝️</span>
-                        <div className="text-left flex-1">
-                            <p className="font-bold text-gray-800 text-sm">Evangelism Report</p>
-                            <p className="text-xs text-gray-400">Manage recruits & training</p>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                )}
+
                 {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} formatDate={formatDate} getRoleColor={getRoleColor} />}
                 {activeTab === 'store' && <StoreTab member={member} onNavigate={(path) => router.push(path)} />}
                 {activeTab === 'orders' && <OrdersTab member={member} />}
@@ -312,6 +283,36 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
 
     return (
         <div className="space-y-4">
+            {/* ROSTER LINK - Visible to ALL members */}
+            <button
+                onClick={() => router.push('/roster')}
+                className="w-full mb-4 flex items-center gap-3 bg-white border border-red-200 rounded-xl p-4 shadow-sm hover:bg-red-50 transition"
+            >
+                <span className="text-2xl">📋</span>
+                <div className="text-left flex-1">
+                    <p className="font-bold text-gray-800 text-sm">Posting Roster</p>
+                    <p className="text-xs text-gray-400">Locations, schedule & dress codes</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+            {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES */}
+            {(['IT Admin', 'Alpha Gulf Serial', 'Gulf Serial', 'Senior Commander I', 'Senior Commander II', 'Secretary'].includes(member?.role)) && (
+                <button
+                    onClick={() => router.push('/evangelism-report')}
+                    className="w-full mb-4 flex items-center gap-3 bg-white border border-green-200 rounded-xl p-4 shadow-sm hover:bg-green-50 transition"
+                >
+                    <span className="text-2xl">✝️</span>
+                    <div className="text-left flex-1">
+                        <p className="font-bold text-gray-800 text-sm">Evangelism Report</p>
+                        <p className="text-xs text-gray-400">Manage recruits & training</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            )}
             {/* Refresh indicator and button */}
             <div className="flex justify-between items-center mb-2">
                 <div className="text-xs text-gray-400">

@@ -116,10 +116,9 @@ export default function Dashboard() {
                 }} />}
                 {activeTab === 'attendance' && <AttendanceTab member={member} />}
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
-                {activeTab === 'acctadmin' && <AcctAdminTab member={member} />}
-                {activeTab === 'evangelism' && (
-                    member?.role === 'Secretary' || member?.role === 'Senior Commander I'
-                ) && <EvangelismTab member={member} />}
+                {activeTab === 'evangelism' && (member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
+                    <EvangelismTab member={member} />
+                )}
             </div>
 
             {/* Bottom Navigation - Flex Layout (better for variable button counts) */}

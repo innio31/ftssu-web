@@ -1077,10 +1077,11 @@ function ITAdminTab({ member }) {
 
     const commands = ['All', 'COMMAND 1', 'COMMAND 2', 'COMMAND 3', 'COMMAND 4', 'COMMAND 5', 'COMMAND 6', 'COMMAND 7', 'COMMAND 8', 'COMMAND 9', 'COMMAND 10', 'COMMAND 11', 'COMMAND 12', 'COMMAND 13', 'COMMAND 14', 'COMMAND 15', 'COMMAND 16', 'COMMAND 17', 'COMMAND 18', 'COMMAND 19', 'COMMAND 20', 'COMMAND 21', 'COMMAND 22', 'SPECIAL DUTY 1', 'SPECIAL DUTY 2', 'SPECIAL DUTY 3', 'SPECIAL DUTY 4', 'SPECIAL DUTY 5', 'VETERAN', 'KHMS', 'COVENANT DAY', 'YOUTH', 'RECRUITMENT & TRAINING', 'HONOUR', 'G & G', 'GOSHEN', 'CODE & ETHICS', 'IID', 'SID', 'PATROL', 'UPPER ROOM', 'OPERATION', 'IRS', 'FORENSIC', 'FRENCH', 'VISION 1', 'VISION 2', 'VISION 3', 'SECURITY MEDICAL', 'SALES MONITORING'];
 
-    // Load data
+    // Load data with cache-busting
     const loadMembers = async () => {
         try {
-            const response = await fetch('/api/get_members.php')
+            // Add cache-busting timestamp
+            const response = await fetch(`/api/get_members.php?_=${Date.now()}`)
             const data = await response.json()
             if (data.success) setMembers(data.members || [])
         } catch (error) { console.error(error) }
@@ -1089,7 +1090,7 @@ function ITAdminTab({ member }) {
 
     const loadServices = async () => {
         try {
-            const response = await fetch('/api/get_services.php')
+            const response = await fetch(`/api/get_services.php?_=${Date.now()}`)
             const data = await response.json()
             if (data.success) setServices(data.services || [])
         } catch (error) { console.error(error) }
@@ -1097,10 +1098,18 @@ function ITAdminTab({ member }) {
 
     const loadAnnouncements = async () => {
         try {
-            const response = await fetch('/api/get_announcements.php')
+            // Add cache-busting timestamp to prevent caching
+            const response = await fetch(`/api/get_announcements.php?_=${Date.now()}`)
             const data = await response.json()
             if (data.success && data.announcements) {
-                setAnnouncements(data.announcements)
+                // Sort announcements: pinned first, then by date (newest first)
+                const sortedAnnouncements = data.announcements.sort((a, b) => {
+                    if (a.is_pinned === b.is_pinned) {
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    return a.is_pinned === 1 ? -1 : 1;
+                });
+                setAnnouncements(sortedAnnouncements);
             }
         } catch (error) {
             console.error('Error loading announcements:', error)
@@ -1119,7 +1128,7 @@ function ITAdminTab({ member }) {
                 const data = await response.json()
                 if (data.success) {
                     alert('Service closed successfully')
-                    loadServices()
+                    await loadServices() // Wait for reload
                 } else {
                     alert(data.error || 'Failed to close service')
                 }
@@ -1141,7 +1150,7 @@ function ITAdminTab({ member }) {
                 const data = await response.json()
                 if (data.success) {
                     alert('Service reopened successfully')
-                    loadServices()
+                    await loadServices() // Wait for reload
                 } else {
                     alert(data.error || 'Failed to reopen service')
                 }
@@ -1167,7 +1176,7 @@ function ITAdminTab({ member }) {
         setFilteredMembers(filtered)
     }
 
-    // Announcement functions
+    // Announcement functions - UPDATED with better state management
     const handleDeleteAnnouncement = async (id) => {
         if (confirm('Delete this announcement? This action cannot be undone.')) {
             try {
@@ -1179,7 +1188,10 @@ function ITAdminTab({ member }) {
                 const data = await response.json()
                 if (data.success) {
                     alert('Announcement deleted successfully!')
-                    loadAnnouncements()
+                    // Remove from local state immediately for instant UI update
+                    setAnnouncements(prev => prev.filter(a => a.id !== id))
+                    // Then refresh from server to ensure consistency
+                    await loadAnnouncements()
                 } else {
                     alert(data.error || 'Failed to delete announcement')
                 }
@@ -1211,7 +1223,21 @@ function ITAdminTab({ member }) {
             const data = await response.json()
             if (data.success) {
                 alert(currentPinned ? 'Announcement unpinned!' : 'Announcement pinned!')
-                loadAnnouncements()
+                // Update local state immediately
+                setAnnouncements(prev => {
+                    const updated = prev.map(a =>
+                        a.id === id ? { ...a, is_pinned: currentPinned ? 0 : 1 } : a
+                    );
+                    // Re-sort: pinned first
+                    return updated.sort((a, b) => {
+                        if (a.is_pinned === b.is_pinned) {
+                            return new Date(b.created_at) - new Date(a.created_at);
+                        }
+                        return a.is_pinned === 1 ? -1 : 1;
+                    });
+                });
+                // Then refresh from server
+                await loadAnnouncements()
             } else {
                 alert(data.error || 'Failed to update pin status')
             }
@@ -1232,7 +1258,6 @@ function ITAdminTab({ member }) {
             let url, body
 
             if (editingAnnouncement) {
-                // Use the update endpoint
                 url = '/api/update_announcement.php'
                 body = {
                     id: editingAnnouncement.id,
@@ -1242,7 +1267,6 @@ function ITAdminTab({ member }) {
                     is_pinned: announcementForm.is_pinned ? 1 : 0
                 }
             } else {
-                // Use the add endpoint
                 url = '/api/add_announcement.php'
                 body = {
                     title: announcementForm.title,
@@ -1254,9 +1278,6 @@ function ITAdminTab({ member }) {
                 }
             }
 
-            console.log('Saving announcement to:', url)
-            console.log('Request body:', JSON.stringify(body, null, 2))
-
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -1266,11 +1287,7 @@ function ITAdminTab({ member }) {
                 body: JSON.stringify(body)
             })
 
-            console.log('Response status:', response.status)
-
-            // Get the response text
             const responseText = await response.text()
-            console.log('Raw response:', responseText)
 
             if (!responseText || responseText.trim() === '') {
                 alert('Server returned empty response')
@@ -1290,12 +1307,16 @@ function ITAdminTab({ member }) {
 
             if (data.success) {
                 alert(editingAnnouncement ? 'Announcement updated successfully!' : 'Announcement posted successfully!')
-                loadAnnouncements()
+
+                // Close modal first
                 setShowAnnouncementModal(false)
                 setEditingAnnouncement(null)
                 setAnnouncementForm({ title: '', content: '', target_command: '', is_pinned: 0 })
 
-                // SNIPPET 4: Send push notification for new announcement
+                // Force refresh announcements with cache-busting
+                await loadAnnouncements()
+
+                // Send push notification for new announcement
                 if (!editingAnnouncement) {
                     try {
                         await fetch('/api/send_push.php', {
@@ -1469,6 +1490,14 @@ function ITAdminTab({ member }) {
                         </button>
                     </div>
 
+                    {/* Refresh button for manual refresh */}
+                    <button
+                        onClick={() => loadAnnouncements()}
+                        className="mb-4 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                        🔄 Refresh Announcements
+                    </button>
+
                     <div className="space-y-4 max-h-96 overflow-y-auto">
                         {announcements.length === 0 ? (
                             <p className="text-gray-500 text-center py-8">No announcements yet</p>
@@ -1508,8 +1537,14 @@ function ITAdminTab({ member }) {
             )}
 
             {/* Modals */}
-            <MemberDetailsModal isOpen={!!selectedMember} onClose={() => setSelectedMember(null)} member={selectedMember} onUpdate={(updatedMember) => { setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m)); setSelectedMember(null) }} />
-            <CreateServiceModal isOpen={showCreateService} onClose={() => setShowCreateService(false)} onSuccess={() => { loadServices(); setShowCreateService(false) }} activeServicesCount={activeServicesCount} />
+            <MemberDetailsModal isOpen={!!selectedMember} onClose={() => setSelectedMember(null)} member={selectedMember} onUpdate={(updatedMember) => {
+                setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
+                setSelectedMember(null)
+            }} />
+            <CreateServiceModal isOpen={showCreateService} onClose={() => setShowCreateService(false)} onSuccess={() => {
+                loadServices();
+                setShowCreateService(false)
+            }} activeServicesCount={activeServicesCount} />
 
             {/* Announcement Modal */}
             {showAnnouncementModal && (

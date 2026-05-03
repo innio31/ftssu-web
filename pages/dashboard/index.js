@@ -13,6 +13,35 @@ import WeeklyReportForm from '../../components/WeeklyReportForm';
 import ObservationForm from '../../components/ObservationForm';
 import ObservationsAdmin from '../../components/ObservationsAdmin';
 
+// Helper function for full access roles
+const hasFullAccess = (role) => {
+    const fullAccessRoles = ['Gulf Charlie', 'Gulf Serial', 'IT Admin', 'Admin'];
+    return fullAccessRoles.includes(role);
+}
+
+// Helper function for checking attendance access
+const canAccessAttendance = (role) => {
+    if (hasFullAccess(role)) return true;
+    return ['Secretary', 'Senior Commander I', 'Senior Commander II'].includes(role);
+}
+
+// Helper function for checking evangelism access
+const canAccessEvangelism = (role) => {
+    if (hasFullAccess(role)) return true;
+    return ['Secretary', 'Senior Commander I'].includes(role);
+}
+
+// Helper function for checking accounts access
+const canAccessAccounts = (role) => {
+    if (hasFullAccess(role)) return true;
+    return ['Acct Admin', 'Accountant'].includes(role);
+}
+
+// Helper function for checking admin panel access
+const canAccessAdminPanel = (role) => {
+    return hasFullAccess(role); // Only full access roles
+}
+
 export default function Dashboard() {
     const router = useRouter()
     const [member, setMember] = useState(null)
@@ -119,11 +148,14 @@ export default function Dashboard() {
                 }} />}
                 {activeTab === 'attendance' && <AttendanceTab member={member} />}
                 {activeTab === 'itadmin' && <ITAdminTab member={member} />}
-                {activeTab === 'evangelism' && (member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
+                {activeTab === 'acctadmin' && canAccessAccounts(member?.role) && (
+                    <AcctAdminTab member={member} />
+                )}
+                {activeTab === 'evangelism' && canAccessEvangelism(member?.role) && (
                     <EvangelismTab member={member} />
                 )}
                 {activeTab === 'observations' && (() => {
-                    const adminRoles = ['IT Admin', 'Golf Charlie', 'Alpha Golf Charlie', 'Golf Serial', 'Alpha Golf Serial'];
+                    const adminRoles = ['IT Admin', 'Gulf Charlie', 'Alpha Gulf Charlie', 'Gulf Serial', 'Alpha Gulf Serial'];
                     const isAdmin = adminRoles.includes(member?.role);
 
                     return (
@@ -161,37 +193,43 @@ export default function Dashboard() {
             {/* Bottom Navigation */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
                 <div className="flex overflow-x-auto scrollbar-hide px-2 py-1 gap-1">
+                    {/* News Tab - Everyone */}
                     <button onClick={() => setActiveTab('announcements')}
                         className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">📢</span>
                         <span className="text-xs mt-1 font-medium">News</span>
                     </button>
 
+                    {/* Store Tab - Everyone */}
                     <button onClick={() => setActiveTab('store')}
                         className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'store' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">🛍️</span>
                         <span className="text-xs mt-1 font-medium">Store</span>
                     </button>
 
+                    {/* Orders Tab - Everyone */}
                     <button onClick={() => setActiveTab('orders')}
                         className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">📋</span>
                         <span className="text-xs mt-1 font-medium">Orders</span>
                     </button>
 
+                    {/* Profile Tab - Everyone */}
                     <button onClick={() => setActiveTab('profile')}
                         className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'profile' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">👤</span>
                         <span className="text-xs mt-1 font-medium">Profile</span>
                     </button>
 
+                    {/* Feedback/Observations Tab - Everyone */}
                     <button onClick={() => setActiveTab('observations')}
                         className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'observations' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">💬</span>
                         <span className="text-xs mt-1 font-medium">Feedback</span>
                     </button>
 
-                    {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Secretary') && (
+                    {/* Attendance Tab - Full Access + Secretary + Senior Commander I/II */}
+                    {canAccessAttendance(member?.role) && (
                         <button onClick={() => setActiveTab('attendance')}
                             className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">📅</span>
@@ -199,7 +237,8 @@ export default function Dashboard() {
                         </button>
                     )}
 
-                    {(member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
+                    {/* Evangelism Tab - Full Access + Secretary + Senior Commander I */}
+                    {canAccessEvangelism(member?.role) && (
                         <button onClick={() => setActiveTab('evangelism')}
                             className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">✝️</span>
@@ -207,7 +246,8 @@ export default function Dashboard() {
                         </button>
                     )}
 
-                    {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
+                    {/* Admin Panel Tab - Only Full Access Roles */}
+                    {canAccessAdminPanel(member?.role) && (
                         <button onClick={() => setActiveTab('itadmin')}
                             className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">⚙️</span>
@@ -215,7 +255,8 @@ export default function Dashboard() {
                         </button>
                     )}
 
-                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'IT Admin') && (
+                    {/* Accounts Tab - Full Access + Acct Admin + Accountant */}
+                    {canAccessAccounts(member?.role) && (
                         <button onClick={() => setActiveTab('acctadmin')}
                             className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'acctadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">💰</span>
@@ -950,7 +991,7 @@ function AttendanceTab({ member }) {
     const [reportHistory, setReportHistory] = useState([])
 
     const canTakeAttendance = ['Secretary', 'Senior Commander I', 'Senior Commander II', 'Admin'].includes(member?.role)
-    const canViewReports = ['Golf Charlie', 'Alpha Golf Charlie', 'Golf Serial', 'Alpha Golf Serial', 'Admin', 'IT Admin'].includes(member?.role)
+    const canViewReports = ['Gulf Charlie', 'Alpha Gulf Charlie', 'Gulf Serial', 'Alpha Gulf Serial', 'Admin', 'IT Admin'].includes(member?.role)
 
     useEffect(() => { loadActiveServices() }, [])
 

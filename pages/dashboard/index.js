@@ -177,9 +177,24 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
     const [localAnnouncements, setLocalAnnouncements] = useState([]);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     useEffect(() => {
         fetchBirthdays();
+        // Only fetch announcements on mount if propAnnouncements is empty
+        if (propAnnouncements.length === 0) {
+            fetchAnnouncements();
+        } else {
+            // Use prop announcements initially
+            const sorted = [...propAnnouncements].sort((a, b) => {
+                if (a.is_pinned === b.is_pinned) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
+                return a.is_pinned === 1 ? -1 : 1;
+            });
+            setLocalAnnouncements(sorted);
+            setIsInitialLoad(false);
+        }
     }, []);
 
     const fetchAnnouncements = async () => {
@@ -200,10 +215,17 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         } catch (error) {
             console.error('Error loading announcements:', error);
             if (propAnnouncements && propAnnouncements.length > 0) {
-                setLocalAnnouncements(propAnnouncements);
+                const sorted = [...propAnnouncements].sort((a, b) => {
+                    if (a.is_pinned === b.is_pinned) {
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    return a.is_pinned === 1 ? -1 : 1;
+                });
+                setLocalAnnouncements(sorted);
             }
         } finally {
             setIsRefreshing(false);
+            setIsInitialLoad(false);
         }
     };
 
@@ -217,10 +239,20 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         }
     };
 
+    // Update local announcements when prop changes (but only if we haven't fetched our own)
     useEffect(() => {
-        fetchAnnouncements();
+        if (propAnnouncements.length > 0 && localAnnouncements.length === 0 && isInitialLoad) {
+            const sorted = [...propAnnouncements].sort((a, b) => {
+                if (a.is_pinned === b.is_pinned) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
+                return a.is_pinned === 1 ? -1 : 1;
+            });
+            setLocalAnnouncements(sorted);
+        }
     }, [propAnnouncements]);
 
+    // Set up auto-refresh interval
     useEffect(() => {
         const interval = setInterval(() => {
             fetchAnnouncements();
@@ -229,6 +261,7 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         return () => clearInterval(interval);
     }, []);
 
+    // Refresh when tab becomes visible again
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (!document.hidden) {
@@ -245,26 +278,15 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
         fetchBirthdays();
     };
 
+    // Create feed array (birthdays + announcements)
     const feed = [
         ...(birthdays.length > 0 ? [{ type: 'birthday', birthdays }] : []),
         ...localAnnouncements.map(a => ({ type: 'announcement', ...a }))
     ];
 
-    if (feed.length === 0 && !isRefreshing) {
-        return (
-            <div className="text-center py-10">
-                <p className="text-4xl mb-3">📭</p>
-                <p className="text-gray-500">No announcements yet</p>
-                <button onClick={handleManualRefresh} className="mt-4 text-sm text-red-600 hover:text-red-800 flex items-center gap-1 mx-auto">
-                    🔄 Refresh
-                </button>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-4">
-            {/* ROSTER LINK - Visible to ALL members */}
+            {/* ROSTER LINK - Visible to ALL members - ALWAYS SHOWN */}
             <button
                 onClick={() => router.push('/roster')}
                 className="w-full mb-4 flex items-center gap-3 bg-white border border-red-200 rounded-xl p-4 shadow-sm hover:bg-red-50 transition"
@@ -279,7 +301,7 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                 </svg>
             </button>
 
-            {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES */}
+            {/* EVANGELISM REPORT BUTTON - ONLY FOR CERTAIN ROLES - ALWAYS SHOWN for those roles */}
             {(['IT Admin', 'Alpha Gulf Serial', 'Gulf Serial', 'Senior Commander I', 'Senior Commander II', 'Secretary'].includes(member?.role)) && (
                 <button
                     onClick={() => router.push('/evangelism-report')}
@@ -296,6 +318,7 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                 </button>
             )}
 
+            {/* Refresh info bar */}
             <div className="flex justify-between items-center mb-2">
                 <div className="text-xs text-gray-400">
                     {isRefreshing ? 'Updating...' : `Last updated: ${new Date(lastRefresh).toLocaleTimeString()}`}
@@ -305,57 +328,65 @@ function AnnouncementsTab({ announcements: propAnnouncements, formatDate, getRol
                 </button>
             </div>
 
-            {feed.map((item, index) => {
-                if (item.type === 'birthday') {
+            {/* Feed content (announcements and birthdays) */}
+            {feed.length === 0 && !isRefreshing && !isInitialLoad ? (
+                <div className="text-center py-10">
+                    <p className="text-4xl mb-3">📭</p>
+                    <p className="text-gray-500">No announcements yet</p>
+                </div>
+            ) : (
+                feed.map((item, index) => {
+                    if (item.type === 'birthday') {
+                        return (
+                            <div key="birthday-card" className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl shadow-md overflow-hidden">
+                                <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="text-2xl">🎂</span>
+                                        <h3 className="font-bold text-white text-lg">Birthday{item.birthdays.length > 1 ? 's' : ''} Today!</h3>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {item.birthdays.map((b, i) => (
+                                            <div key={i} className="bg-white/25 rounded-lg p-3 flex items-center gap-3">
+                                                {b.profile_picture ? (
+                                                    <img src={b.profile_picture} alt={b.name} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                                                ) : null}
+                                                <div className="w-12 h-12 rounded-full bg-white/40 border-2 border-white flex items-center justify-center text-white font-bold text-lg" style={{ display: b.profile_picture ? 'none' : 'flex' }}>
+                                                    {b.name.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-white text-sm truncate">{b.name}</p>
+                                                    <p className="text-yellow-100 text-xs">{b.command}</p>
+                                                </div>
+                                                <div className="text-center"><p className="text-white text-xl">🎉</p></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-yellow-100 text-xs text-center mt-3">Wishing them a blessed birthday! 🙏</p>
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
-                        <div key="birthday-card" className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl shadow-md overflow-hidden">
+                        <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.is_pinned == 1 ? 'border-red-300' : 'border-gray-100'}`}>
+                            {item.is_pinned == 1 && <div className="bg-red-50 px-4 py-1 border-b border-red-200"><span className="text-red-600 text-xs font-semibold">📌 Pinned</span></div>}
                             <div className="p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-2xl">🎂</span>
-                                    <h3 className="font-bold text-white text-lg">Birthday{item.birthdays.length > 1 ? 's' : ''} Today!</h3>
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-bold text-gray-800 flex-1 pr-2">{item.title}</h3>
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(item.created_at)}</span>
                                 </div>
-                                <div className="space-y-3">
-                                    {item.birthdays.map((b, i) => (
-                                        <div key={i} className="bg-white/25 rounded-lg p-3 flex items-center gap-3">
-                                            {b.profile_picture ? (
-                                                <img src={b.profile_picture} alt={b.name} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                                            ) : null}
-                                            <div className="w-12 h-12 rounded-full bg-white/40 border-2 border-white flex items-center justify-center text-white font-bold text-lg" style={{ display: b.profile_picture ? 'none' : 'flex' }}>
-                                                {b.name.charAt(0)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-white text-sm truncate">{b.name}</p>
-                                                <p className="text-yellow-100 text-xs">{b.command}</p>
-                                            </div>
-                                            <div className="text-center"><p className="text-white text-xl">🎉</p></div>
-                                        </div>
-                                    ))}
+                                <p className="text-gray-600 text-sm leading-relaxed">{item.content}</p>
+                                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                                    <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium" style={{ backgroundColor: getRoleColor(item.author_role) }}>
+                                        {item.author_role}
+                                    </span>
+                                    <span className="text-xs text-gray-500">{item.author}</span>
                                 </div>
-                                <p className="text-yellow-100 text-xs text-center mt-3">Wishing them a blessed birthday! 🙏</p>
                             </div>
                         </div>
                     );
-                }
-
-                return (
-                    <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.is_pinned == 1 ? 'border-red-300' : 'border-gray-100'}`}>
-                        {item.is_pinned == 1 && <div className="bg-red-50 px-4 py-1 border-b border-red-200"><span className="text-red-600 text-xs font-semibold">📌 Pinned</span></div>}
-                        <div className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-gray-800 flex-1 pr-2">{item.title}</h3>
-                                <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(item.created_at)}</span>
-                            </div>
-                            <p className="text-gray-600 text-sm leading-relaxed">{item.content}</p>
-                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                                <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium" style={{ backgroundColor: getRoleColor(item.author_role) }}>
-                                    {item.author_role}
-                                </span>
-                                <span className="text-xs text-gray-500">{item.author}</span>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
+                })
+            )}
         </div>
     );
 }
@@ -954,10 +985,6 @@ function AttendanceTab({ member }) {
     )
 }
 
-// ============= IT ADMIN TAB - Keep as is (too long to duplicate, but ensure it has weekly_reports subtab) =============
-// [ITAdminTab function remains the same as in your file - it already includes weekly_reports subtab]
-
-// ============= ACCT ADMIN TAB - Keep as is =============
 // [AcctAdminTab function remains the same as in your file]
 // ============= IT ADMIN TAB with Subtabs =============
 function ITAdminTab({ member }) {

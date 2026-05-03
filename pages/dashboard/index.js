@@ -10,6 +10,8 @@ import EvangelismTab from '../../components/EvangelismTab';
 import PostingAlert from '../../components/PostingAlert';
 import AdminReportGenerator from '../../components/AdminReportGenerator';
 import WeeklyReportForm from '../../components/WeeklyReportForm';
+import ObservationForm from '../../components/ObservationForm';
+import ObservationsAdmin from '../../components/ObservationsAdmin';
 
 export default function Dashboard() {
     const router = useRouter()
@@ -120,6 +122,40 @@ export default function Dashboard() {
                 {activeTab === 'evangelism' && (member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
                     <EvangelismTab member={member} />
                 )}
+                {activeTab === 'observations' && (() => {
+                    const adminRoles = ['IT Admin', 'Golf Charlie', 'Alpha Golf Charlie', 'Golf Serial', 'Alpha Golf Serial'];
+                    const isAdmin = adminRoles.includes(member?.role);
+
+                    return (
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">💬 Observations & Feedback</h2>
+
+                            {/* Admin sees both their own form + the admin panel */}
+                            {isAdmin ? (
+                                <div className="space-y-6">
+                                    {/* Admin panel first */}
+                                    <div>
+                                        <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                            <span>📋</span> All Submissions
+                                        </h3>
+                                        <ObservationsAdmin member={member} />
+                                    </div>
+
+                                    {/* Admins can also submit anonymously */}
+                                    <div>
+                                        <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                            <span>🔒</span> Submit Anonymously
+                                        </h3>
+                                        <ObservationForm />
+                                    </div>
+                                </div>
+                            ) : (
+                                // Regular members only see submission form
+                                <ObservationForm />
+                            )}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Bottom Navigation */}
@@ -165,6 +201,14 @@ export default function Dashboard() {
                             <span className="text-xs mt-1 font-medium">Accounts</span>
                         </button>
                     )}
+                    <button
+                        onClick={() => setActiveTab('observations')}
+                        className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'observations' ? 'bg-red-50 text-red-600' : 'text-gray-500'
+                            }`}
+                    >
+                        <span className="text-xl">💬</span>
+                        <span className="text-xs mt-1 font-medium">Feedback</span>
+                    </button>
                 </div>
             </div>
         </div>

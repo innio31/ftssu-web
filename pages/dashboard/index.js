@@ -159,56 +159,69 @@ export default function Dashboard() {
             </div>
 
             {/* Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-                <div className="flex flex-wrap justify-around gap-1 p-2">
-                    <button onClick={() => setActiveTab('announcements')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
+                <div className="flex overflow-x-auto scrollbar-hide px-2 py-1 gap-1">
+                    <button onClick={() => setActiveTab('announcements')}
+                        className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'announcements' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">📢</span>
                         <span className="text-xs mt-1 font-medium">News</span>
                     </button>
-                    <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'store' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+
+                    <button onClick={() => setActiveTab('store')}
+                        className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'store' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">🛍️</span>
                         <span className="text-xs mt-1 font-medium">Store</span>
                     </button>
-                    <button onClick={() => setActiveTab('orders')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+
+                    <button onClick={() => setActiveTab('orders')}
+                        className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                         <span className="text-xl">📋</span>
                         <span className="text-xs mt-1 font-medium">Orders</span>
                     </button>
+
+                    <button onClick={() => setActiveTab('profile')}
+                        className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'profile' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">👤</span>
+                        <span className="text-xs mt-1 font-medium">Profile</span>
+                    </button>
+
+                    <button onClick={() => setActiveTab('observations')}
+                        className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'observations' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <span className="text-xl">💬</span>
+                        <span className="text-xs mt-1 font-medium">Feedback</span>
+                    </button>
+
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Secretary') && (
-                        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <button onClick={() => setActiveTab('attendance')}
+                            className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'attendance' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">📅</span>
                             <span className="text-xs mt-1 font-medium">Attendance</span>
                         </button>
                     )}
-                    <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'profile' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
-                        <span className="text-xl">👤</span>
-                        <span className="text-xs mt-1 font-medium">Profile</span>
-                    </button>
+
                     {(member?.role === 'Secretary' || member?.role === 'Senior Commander I') && (
-                        <button onClick={() => setActiveTab('evangelism')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <button onClick={() => setActiveTab('evangelism')}
+                            className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">✝️</span>
                             <span className="text-xs mt-1 font-medium">Evangelism</span>
                         </button>
                     )}
+
                     {(member?.role === 'IT Admin' || member?.role === 'Golf Serial' || member?.role === 'Admin') && (
-                        <button onClick={() => setActiveTab('itadmin')} className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                        <button onClick={() => setActiveTab('itadmin')}
+                            className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'itadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">⚙️</span>
                             <span className="text-xs mt-1 font-medium">Admin</span>
                         </button>
                     )}
-                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'ITAdmin') && (
-                        <button onClick={() => setActiveTab('acctadmin')} className={`flex flex-col items-center py-3 px-4 transition ${activeTab === 'acctadmin' ? 'text-red-600' : 'text-gray-500'}`}>
-                            <span className="text-2xl">💰</span>
+
+                    {(member?.role === 'Acct Admin' || member?.role === 'Accountant' || member?.role === 'IT Admin') && (
+                        <button onClick={() => setActiveTab('acctadmin')}
+                            className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'acctadmin' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
+                            <span className="text-xl">💰</span>
                             <span className="text-xs mt-1 font-medium">Accounts</span>
                         </button>
                     )}
-                    <button
-                        onClick={() => setActiveTab('observations')}
-                        className={`flex flex-col items-center py-2 px-1 rounded-lg transition ${activeTab === 'observations' ? 'bg-red-50 text-red-600' : 'text-gray-500'
-                            }`}
-                    >
-                        <span className="text-xl">💬</span>
-                        <span className="text-xs mt-1 font-medium">Feedback</span>
-                    </button>
                 </div>
             </div>
         </div>

@@ -12,6 +12,16 @@
   status = 200
   force = true
 
+# Recruitment & Training recruit detail is a dynamic route -- route any
+# /recruitment-training/<id> path (no literal file, e.g. a refresh or
+# deep link) to the exported [id] template. Static subpages like
+# /recruitment-training/new/ still match their real files first, so this
+# only catches the dynamic id case.
+[[redirects]]
+  from = "/recruitment-training/*"
+  to = "/recruitment-training/[id]/index.html"
+  status = 200
+
 # SPA Fallback - all routes go to index.html
 [[redirects]]
   from = "/*"

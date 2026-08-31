@@ -1,58 +1,122 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
+import Image from 'next/image'
 
 export default function LoginPage() {
+    const [step, setStep] = useState('id') // 'id' | 'password'
     const [idNumber, setIdNumber] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [greetingName, setGreetingName] = useState('')
     const router = useRouter()
 
-    const handleSubmit = async (e) => {
+    const finishLogin = async (id, pwd) => {
+        const response = await fetch('/api/verify_member.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_number: id.toUpperCase(), password: pwd }),
+        })
+        const data = await response.json()
+
+        if (data.success && data.member) {
+            localStorage.setItem('ftssu_member', JSON.stringify(data.member))
+            router.push('/dashboard')
+            return
+        }
+
+        // A role that needs a password but wasn't given one -- reveal the field
+        if (data.requires_password) {
+            setStep('password')
+            setError('')
+        } else {
+            setError(data.message || 'Invalid credentials')
+        }
+    }
+
+    // Step 1: ID number only. We check whether this ID needs a password
+    // before deciding whether to log in immediately or ask for one.
+    const handleIdSubmit = async (e) => {
         e.preventDefault()
         setError('')
 
-        if (!idNumber.trim() || !password.trim()) {
-            setError('Please enter ID and password')
+        if (!idNumber.trim()) {
+            setError('Please enter your ID Card Number')
             return
         }
 
         setLoading(true)
-
         try {
-            const response = await fetch('/api/verify_member.php', {
+            const response = await fetch('/api/check_login_method.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id_number: idNumber.toUpperCase(),
-                    password
-                }),
+                body: JSON.stringify({ id_number: idNumber.toUpperCase() }),
             })
-
             const data = await response.json()
 
-            if (data.success && data.member) {
-                localStorage.setItem('ftssu_member', JSON.stringify(data.member))
-                router.push('/dashboard')
+            if (!data.success) {
+                setError(data.message || 'ID Number not found')
+                setLoading(false)
+                return
+            }
+
+            if (data.requires_password) {
+                setGreetingName(data.first_name || '')
+                setStep('password')
+                setLoading(false)
             } else {
-                setError(data.message || 'Invalid credentials')
+                // Member role -- no password needed, log straight in
+                await finishLogin(idNumber, '')
+                setLoading(false)
             }
         } catch (err) {
             setError('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
+    // Step 2: password, only shown for roles that require one
+    const handlePasswordSubmit = async (e) => {
+        e.preventDefault()
+        setError('')
+
+        if (!password.trim()) {
+            setError('Please enter your password')
+            return
         }
 
+        setLoading(true)
+        try {
+            await finishLogin(idNumber, password)
+        } catch (err) {
+            setError('Network error. Please try again.')
+        }
         setLoading(false)
+    }
+
+    const backToIdStep = () => {
+        setStep('id')
+        setPassword('')
+        setError('')
     }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-700 to-red-900 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
                 <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-white text-2xl font-bold">FTSSU</span>
+                    <div className="w-20 h-20 relative mx-auto mb-4">
+                        <Image
+                            src="/ftssu-logo.png"
+                            alt="FTSSU Logo"
+                            fill
+                            style={{ objectFit: 'contain' }}
+                            priority
+                        />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">
+                        {step === 'password' && greetingName ? `Welcome, ${greetingName}` : 'Welcome Back'}
+                    </h1>
                     <p className="text-gray-500 text-sm mt-2">Faith Tabernacle Security Service Unit</p>
                 </div>
 
@@ -62,28 +126,47 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-semibold mb-2">ID Card Number</label>
-                        <input
-                            type="text"
-                            value={idNumber}
-                            onChange={(e) => setIdNumber(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
-                            placeholder="e.g., FTSSU001"
-                            style={{ textTransform: 'uppercase' }}
-                        />
-                    </div>
+                {step === 'id' && (
+                    <form onSubmit={handleIdSubmit}>
+                        <div className="mb-6">
+                            <label className="block text-gray-700 text-sm font-semibold mb-2">ID Card Number</label>
+                            <input
+                                type="text"
+                                value={idNumber}
+                                onChange={(e) => setIdNumber(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
+                                placeholder="e.g., FTSSU001"
+                                style={{ textTransform: 'uppercase' }}
+                                autoFocus
+                            />
+                        </div>
 
-                    <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-semibold mb-2">Password</label>
-                        <div className="relative">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {loading ? 'Checking...' : 'Continue →'}
+                        </button>
+                    </form>
+                )}
+
+                {step === 'password' && (
+                    <form onSubmit={handlePasswordSubmit}>
+                        <div className="mb-2 flex items-center justify-between">
+                            <label className="block text-gray-700 text-sm font-semibold">Password</label>
+                            <button type="button" onClick={backToIdStep} className="text-xs text-red-600 hover:underline">
+                                Not you? Change ID
+                            </button>
+                        </div>
+                        <div className="relative mb-6">
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
                                 placeholder="Enter your password"
+                                autoFocus
                             />
                             <button
                                 type="button"
@@ -105,19 +188,21 @@ export default function LoginPage() {
                                 )}
                             </button>
                         </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                    >
-                        {loading ? 'Logging in...' : 'Login →'}
-                    </button>
-                </form>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {loading ? 'Logging in...' : 'Login →'}
+                        </button>
+                    </form>
+                )}
 
                 <p className="text-center text-xs text-gray-400 mt-6">
-                    Default password is your last name (lowercase)
+                    {step === 'password'
+                        ? 'Default password is your last name (lowercase)'
+                        : 'Members sign in with their ID Card Number only'}
                 </p>
             </div>
         </div>

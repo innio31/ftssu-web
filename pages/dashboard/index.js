@@ -37,6 +37,17 @@ const canAccessAccounts = (role) => {
     return ['Acct Admin', 'Accountant'].includes(role);
 }
 
+// Helper function for Recruitment & Training admin access -- rank AND
+// command both matter here (mirrors rt_permissions.php on the backend;
+// the backend re-checks this independently, this is just for showing/hiding the nav icon)
+const RT_ADMIN_ROLES = ['Senior Commander I', 'Senior Commander II', 'Commander I', 'Commander II', 'Secretary'];
+const canAccessRT = (member) => {
+    if (!member) return false;
+    if (member.role === 'Gulf Serial') return true;
+    if (member.role === 'IT Admin' && (member.command || '').toUpperCase() === 'UPPER ROOM') return true;
+    return RT_ADMIN_ROLES.includes(member.role) && (member.command || '').toUpperCase() === 'RECRUITMENT & TRAINING';
+}
+
 // Helper function for checking admin panel access
 const canAccessAdminPanel = (role) => {
     return hasFullAccess(role); // Only full access roles
@@ -243,6 +254,15 @@ export default function Dashboard() {
                             className={`flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] ${activeTab === 'evangelism' ? 'bg-red-50 text-red-600' : 'text-gray-500'}`}>
                             <span className="text-xl">✝️</span>
                             <span className="text-xs mt-1 font-medium">Evangelism</span>
+                        </button>
+                    )}
+
+                    {/* Recruitment & Training - rank + command gated, mirrors backend rt_permissions.php */}
+                    {canAccessRT(member) && (
+                        <button onClick={() => router.push('/recruitment-training')}
+                            className="flex flex-col items-center py-2 px-3 rounded-lg transition flex-shrink-0 min-w-[60px] text-gray-500">
+                            <span className="text-xl">🎯</span>
+                            <span className="text-xs mt-1 font-medium">R&T</span>
                         </button>
                     )}
 

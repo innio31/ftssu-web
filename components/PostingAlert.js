@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-    getCurrentPeriodIndex,
-    getThisSundayInPeriod,
+    getCurrentSundayIndex,
     getDressCode,
     getCommandNumber,
     getCommandLocation,
     isNumericalCommand,
     LOCATIONS,
-    ROSTER_PERIODS,
+    ROSTER_SUNDAYS,
     fmtSunday,
 } from '../utils/rosterData';
 
@@ -19,19 +18,17 @@ export default function PostingAlert({ member }) {
     useEffect(() => {
         if (!member?.command) return;
 
-        const periodIdx = getCurrentPeriodIndex();
-        if (periodIdx === null) { setVisible(false); return; }
+        const sundayIdx = getCurrentSundayIndex();
+        if (sundayIdx === null) { setVisible(false); return; }
 
-        const sundayNum = getThisSundayInPeriod();
-        const period = ROSTER_PERIODS[periodIdx];
-        const dress = getDressCode(periodIdx, sundayNum);
+        const sunday = ROSTER_SUNDAYS[sundayIdx];
+        const dress = getDressCode(sundayIdx);
         const numerical = isNumericalCommand(member.command);
         const cmdNum = getCommandNumber(member.command);
 
         if (numerical && cmdNum) {
-            const locKey = getCommandLocation(cmdNum, periodIdx);
+            const locKey = getCommandLocation(cmdNum, sundayIdx);
             const locName = LOCATIONS[locKey] || locKey;
-            const nextSunday = sundayNum === 1 ? period.s1 : period.s2;
 
             setInfo({
                 type: 'numerical',
@@ -39,17 +36,15 @@ export default function PostingAlert({ member }) {
                 location: locKey,
                 locName,
                 dress,
-                nextSunday,
-                sundayNum,
+                thisSunday: sunday.date,
             });
         } else {
             // Special command
-            const nextSunday = sundayNum === 1 ? period.s1 : period.s2;
             setInfo({
                 type: 'special',
                 command: member.command,
                 dress,
-                nextSunday,
+                thisSunday: sunday.date,
             });
         }
     }, [member]);
@@ -61,8 +56,8 @@ export default function PostingAlert({ member }) {
         : '';
 
     const alertText = info.type === 'numerical'
-        ? `📍 ${info.command} — POSTING: ${info.location}: ${info.locName}  |  📅 Next Sunday: ${fmtSunday(info.nextSunday)}  |  ${dressText}  |  `
-        : `🎖️ ${info.command} — You are on Special Command duty. Report to your designated station as directed by the Command and Control Centre.  |  📅 Next Sunday: ${fmtSunday(info.nextSunday)}  |  ${dressText}  |  `;
+        ? `📍 ${info.command} — POSTING: ${info.location}: ${info.locName}  |  📅 This Sunday: ${fmtSunday(info.thisSunday)}  |  ${dressText}  |  `
+        : `🎖️ ${info.command} — You are on Special Command duty. Report to your designated station as directed by the Command and Control Centre.  |  📅 This Sunday: ${fmtSunday(info.thisSunday)}  |  ${dressText}  |  `;
 
     const bgColor = info.type === 'numerical' ? 'bg-red-700' : 'bg-green-800';
 

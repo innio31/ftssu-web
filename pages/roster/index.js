@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
-    ROSTER_PERIODS,
+    ROSTER_SUNDAYS,
     ROSTER,
     LOCATIONS,
     DRESS_LABELS,
-    getCurrentPeriodIndex,
+    getCurrentSundayIndex,
     getCommandNumber,
-    getCommandLocation,
     getCommandFullRoster,
-    getLocationCommand,
     isNumericalCommand,
     fmtSunday,
 } from '../../utils/rosterData';
@@ -21,7 +19,7 @@ export default function RosterPage() {
     const router = useRouter();
     const [member, setMember] = useState(null);
     const [activeTab, setActiveTab] = useState('myRoster');
-    const currentPeriodIdx = getCurrentPeriodIndex();
+    const currentSundayIdx = getCurrentSundayIndex();
 
     useEffect(() => {
         const stored = localStorage.getItem('ftssu_member');
@@ -63,9 +61,9 @@ export default function RosterPage() {
                             <p className="text-red-200 text-xs">{member.command}</p>
                         </div>
                     </div>
-                    {currentPeriodIdx !== null && (
+                    {currentSundayIdx !== null && (
                         <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
-                            Period {currentPeriodIdx + 1} Active
+                            This Sunday Active
                         </span>
                     )}
                 </div>
@@ -83,10 +81,10 @@ export default function RosterPage() {
             </div>
 
             <div className="p-4 max-w-2xl mx-auto">
-                {activeTab === 'myRoster' && <MyRosterTab member={member} cmdNum={cmdNum} isNumerical={isNumerical} currentPeriodIdx={currentPeriodIdx} />}
-                {activeTab === 'fullRoster' && <FullRosterTab member={member} cmdNum={cmdNum} isNumerical={isNumerical} currentPeriodIdx={currentPeriodIdx} />}
-                {activeTab === 'dressCode' && <DressCodeTab currentPeriodIdx={currentPeriodIdx} />}
-                {activeTab === 'lookup' && isAdmin && <LocationLookupTab currentPeriodIdx={currentPeriodIdx} />}
+                {activeTab === 'myRoster' && <MyRosterTab member={member} cmdNum={cmdNum} isNumerical={isNumerical} currentSundayIdx={currentSundayIdx} />}
+                {activeTab === 'fullRoster' && <FullRosterTab cmdNum={cmdNum} isNumerical={isNumerical} currentSundayIdx={currentSundayIdx} />}
+                {activeTab === 'dressCode' && <DressCodeTab currentSundayIdx={currentSundayIdx} />}
+                {activeTab === 'lookup' && isAdmin && <LocationLookupTab currentSundayIdx={currentSundayIdx} />}
             </div>
         </div>
     );
@@ -95,7 +93,7 @@ export default function RosterPage() {
 // ----------------------------------------------------------------
 // MY ROSTER TAB — personalised schedule for logged-in member
 // ----------------------------------------------------------------
-function MyRosterTab({ member, cmdNum, isNumerical, currentPeriodIdx }) {
+function MyRosterTab({ member, cmdNum, isNumerical, currentSundayIdx }) {
     if (!isNumerical) {
         return (
             <div className="space-y-4">
@@ -109,7 +107,7 @@ function MyRosterTab({ member, cmdNum, isNumerical, currentPeriodIdx }) {
                         Report to your designated station as directed by the Control Centre.
                     </p>
                 </div>
-                <DressCodeTab currentPeriodIdx={currentPeriodIdx} />
+                <DressCodeTab currentSundayIdx={currentSundayIdx} />
             </div>
         );
     }
@@ -123,22 +121,21 @@ function MyRosterTab({ member, cmdNum, isNumerical, currentPeriodIdx }) {
             </p>
 
             {schedule.map((row, idx) => {
-                const isCurrent = idx === currentPeriodIdx;
+                const isCurrent = idx === currentSundayIdx;
                 return (
                     <div key={idx}
                         className={`rounded-xl border shadow-sm overflow-hidden ${isCurrent ? 'border-red-400 ring-2 ring-red-300' : 'border-gray-100 bg-white'
                             }`}>
                         {isCurrent && (
                             <div className="bg-red-600 px-3 py-1 text-center">
-                                <span className="text-white text-xs font-bold">📍 CURRENT POSTING</span>
+                                <span className="text-white text-xs font-bold">📍 THIS SUNDAY</span>
                             </div>
                         )}
                         <div className={`p-4 ${isCurrent ? 'bg-red-50' : ''}`}>
                             <div className="flex justify-between items-start mb-2">
                                 <div>
-                                    <p className="text-xs text-gray-400">Period {idx + 1}</p>
                                     <p className="text-xs font-semibold text-gray-600">
-                                        {fmtSunday(row.sunday1)} & {fmtSunday(row.sunday2)}
+                                        {fmtSunday(row.date)}
                                     </p>
                                 </div>
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${isCurrent ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'
@@ -147,20 +144,9 @@ function MyRosterTab({ member, cmdNum, isNumerical, currentPeriodIdx }) {
                                 </span>
                             </div>
                             <p className="text-sm font-bold text-gray-800 leading-tight">{row.locationName}</p>
-                            <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100">
-                                <div className="flex-1 text-center">
-                                    <p className="text-xs text-gray-400">1st Sunday</p>
-                                    <p className="text-xs font-semibold text-gray-700">
-                                        {DRESS_LABELS[row.dressCode1]?.emoji} {DRESS_LABELS[row.dressCode1]?.short}
-                                    </p>
-                                </div>
-                                <div className="w-px bg-gray-200" />
-                                <div className="flex-1 text-center">
-                                    <p className="text-xs text-gray-400">2nd Sunday</p>
-                                    <p className="text-xs font-semibold text-gray-700">
-                                        {DRESS_LABELS[row.dressCode2]?.emoji} {DRESS_LABELS[row.dressCode2]?.short}
-                                    </p>
-                                </div>
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+                                <span className="text-lg">{row.dress?.emoji}</span>
+                                <p className="text-xs font-semibold text-gray-700">{row.dress?.short}</p>
                             </div>
                         </div>
                     </div>
@@ -171,47 +157,40 @@ function MyRosterTab({ member, cmdNum, isNumerical, currentPeriodIdx }) {
 }
 
 // ----------------------------------------------------------------
-// FULL ROSTER TAB — all commands, all periods
+// FULL ROSTER TAB — all commands, all Sundays
 // ----------------------------------------------------------------
-function FullRosterTab({ cmdNum, isNumerical, currentPeriodIdx }) {
-    const [selectedPeriod, setSelectedPeriod] = useState(
-        currentPeriodIdx !== null ? currentPeriodIdx : 0
+function FullRosterTab({ cmdNum, isNumerical, currentSundayIdx }) {
+    const [selectedSunday, setSelectedSunday] = useState(
+        currentSundayIdx !== null ? currentSundayIdx : 0
     );
-    const period = ROSTER_PERIODS[selectedPeriod];
+    const sunday = ROSTER_SUNDAYS[selectedSunday];
 
     return (
         <div className="space-y-3">
-            {/* Period selector */}
+            {/* Sunday selector */}
             <div>
-                <label className="text-xs font-semibold text-gray-500 block mb-1">Select Period</label>
-                <select value={selectedPeriod} onChange={e => setSelectedPeriod(parseInt(e.target.value))}
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Select Sunday</label>
+                <select value={selectedSunday} onChange={e => setSelectedSunday(parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm">
-                    {ROSTER_PERIODS.map((p, idx) => (
+                    {ROSTER_SUNDAYS.map((s, idx) => (
                         <option key={idx} value={idx}>
-                            Period {idx + 1}: {fmtSunday(p.s1)} & {fmtSunday(p.s2)}
-                            {idx === currentPeriodIdx ? ' ← Current' : ''}
+                            {fmtSunday(s.date)}
+                            {idx === currentSundayIdx ? ' ← This Sunday' : ''}
                         </option>
                     ))}
                 </select>
             </div>
 
-            {/* Dress codes for selected period */}
-            <div className="bg-gray-800 text-white rounded-xl p-3 flex gap-3">
-                <div className="flex-1 text-center">
-                    <p className="text-xs text-gray-400">1st Sunday</p>
-                    <p className="text-sm font-bold">{DRESS_LABELS[period.d1]?.emoji} {DRESS_LABELS[period.d1]?.short}</p>
-                </div>
-                <div className="w-px bg-gray-600" />
-                <div className="flex-1 text-center">
-                    <p className="text-xs text-gray-400">2nd Sunday</p>
-                    <p className="text-sm font-bold">{DRESS_LABELS[period.d2]?.emoji} {DRESS_LABELS[period.d2]?.short}</p>
-                </div>
+            {/* Dress code for selected Sunday */}
+            <div className="bg-gray-800 text-white rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">Dress Code</p>
+                <p className="text-sm font-bold">{DRESS_LABELS[sunday.dress]?.emoji} {DRESS_LABELS[sunday.dress]?.short}</p>
             </div>
 
-            {/* Location list for this period */}
-            <p className="text-xs text-gray-400 text-center">All 22 locations for this period</p>
+            {/* Location list for this Sunday */}
+            <p className="text-xs text-gray-400 text-center">All 22 locations for this Sunday</p>
             {Object.entries(ROSTER).map(([loc, commands]) => {
-                const cmdInLoc = commands[selectedPeriod];
+                const cmdInLoc = commands[selectedSunday];
                 const isMyCommand = isNumerical && cmdNum === cmdInLoc;
                 return (
                     <div key={loc}
@@ -241,9 +220,9 @@ function FullRosterTab({ cmdNum, isNumerical, currentPeriodIdx }) {
 }
 
 // ----------------------------------------------------------------
-// DRESS CODE TAB — all periods dress code calendar
+// DRESS CODE TAB — all Sundays dress code calendar
 // ----------------------------------------------------------------
-function DressCodeTab({ currentPeriodIdx }) {
+function DressCodeTab({ currentSundayIdx }) {
     return (
         <div className="space-y-3">
             {/* Legend */}
@@ -262,7 +241,7 @@ function DressCodeTab({ currentPeriodIdx }) {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-100">
                     <p className="text-xs text-gray-500 leading-relaxed">
-                        <strong>Note:</strong> In months with 5 Sundays, the 3rd Sunday uniform is B/W (Black Suit & White Shirt with Long Tie/Scarf).
+                        <strong>Note:</strong> In months with 5 Sundays, the 3rd Sunday uniform is B/W (Black Suit & White Shirt with Long Tie/Scarf). Dress code for special events will be communicated separately.
                     </p>
                 </div>
             </div>
@@ -271,34 +250,23 @@ function DressCodeTab({ currentPeriodIdx }) {
             <p className="text-xs text-gray-400 text-center font-semibold uppercase tracking-wide">
                 Full Dress Code Schedule
             </p>
-            {ROSTER_PERIODS.map((period, idx) => {
-                const isCurrent = idx === currentPeriodIdx;
+            {ROSTER_SUNDAYS.map((sunday, idx) => {
+                const isCurrent = idx === currentSundayIdx;
                 return (
                     <div key={idx}
                         className={`rounded-xl border shadow-sm overflow-hidden ${isCurrent ? 'border-red-400 ring-2 ring-red-300' : 'border-gray-100 bg-white'
                             }`}>
                         {isCurrent && (
                             <div className="bg-red-600 px-3 py-1 text-center">
-                                <span className="text-white text-xs font-bold">CURRENT PERIOD</span>
+                                <span className="text-white text-xs font-bold">THIS SUNDAY</span>
                             </div>
                         )}
-                        <div className={`p-3 ${isCurrent ? 'bg-red-50' : ''}`}>
-                            <p className="text-xs text-gray-500 mb-2">
-                                Period {idx + 1} · {fmtSunday(period.s1)} & {fmtSunday(period.s2)}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className={`rounded-lg p-2 text-center ${isCurrent ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <p className="text-xs text-gray-400 mb-1">1st Sunday</p>
-                                    <p className="text-sm font-bold text-gray-800">
-                                        {DRESS_LABELS[period.d1]?.emoji} {DRESS_LABELS[period.d1]?.short}
-                                    </p>
-                                </div>
-                                <div className={`rounded-lg p-2 text-center ${isCurrent ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <p className="text-xs text-gray-400 mb-1">2nd Sunday</p>
-                                    <p className="text-sm font-bold text-gray-800">
-                                        {DRESS_LABELS[period.d2]?.emoji} {DRESS_LABELS[period.d2]?.short}
-                                    </p>
-                                </div>
+                        <div className={`p-3 flex items-center justify-between ${isCurrent ? 'bg-red-50' : ''}`}>
+                            <p className="text-xs text-gray-500">{fmtSunday(sunday.date)}</p>
+                            <div className={`rounded-lg px-3 py-1.5 ${isCurrent ? 'bg-white' : 'bg-gray-50'}`}>
+                                <p className="text-sm font-bold text-gray-800">
+                                    {DRESS_LABELS[sunday.dress]?.emoji} {DRESS_LABELS[sunday.dress]?.short}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -309,17 +277,17 @@ function DressCodeTab({ currentPeriodIdx }) {
 }
 
 // ----------------------------------------------------------------
-// LOCATION LOOKUP TAB — admin: pick location, see all periods
+// LOCATION LOOKUP TAB — admin: pick location, see all Sundays
 // ----------------------------------------------------------------
-function LocationLookupTab({ currentPeriodIdx }) {
+function LocationLookupTab({ currentSundayIdx }) {
     const [selectedLoc, setSelectedLoc] = useState('LOC-1');
-    const [selectedPeriod, setSelectedPeriod] = useState(
-        currentPeriodIdx !== null ? currentPeriodIdx : 0
+    const [selectedSunday, setSelectedSunday] = useState(
+        currentSundayIdx !== null ? currentSundayIdx : 0
     );
-    const [viewMode, setViewMode] = useState('byLocation'); // 'byLocation' | 'byPeriod'
+    const [viewMode, setViewMode] = useState('byLocation'); // 'byLocation' | 'bySunday'
 
     const commands = ROSTER[selectedLoc] || [];
-    const period = ROSTER_PERIODS[selectedPeriod];
+    const sunday = ROSTER_SUNDAYS[selectedSunday];
 
     return (
         <div className="space-y-3">
@@ -327,7 +295,7 @@ function LocationLookupTab({ currentPeriodIdx }) {
             <div className="flex bg-gray-100 rounded-xl p-1">
                 {[
                     { id: 'byLocation', label: '📍 By Location' },
-                    { id: 'byPeriod', label: '📅 By Period' },
+                    { id: 'bySunday', label: '📅 By Sunday' },
                 ].map(m => (
                     <button key={m.id} onClick={() => setViewMode(m.id)}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${viewMode === m.id ? 'bg-white text-red-700 shadow' : 'text-gray-500'
@@ -337,7 +305,7 @@ function LocationLookupTab({ currentPeriodIdx }) {
                 ))}
             </div>
 
-            {/* BY LOCATION: pick a location, see all periods */}
+            {/* BY LOCATION: pick a location, see all Sundays */}
             {viewMode === 'byLocation' && (
                 <div className="space-y-3">
                     <div>
@@ -356,9 +324,9 @@ function LocationLookupTab({ currentPeriodIdx }) {
                     </div>
 
                     <p className="text-xs text-gray-400 text-center">Commands serving at this location</p>
-                    {ROSTER_PERIODS.map((p, idx) => {
+                    {ROSTER_SUNDAYS.map((s, idx) => {
                         const cmd = commands[idx];
-                        const isCurrent = idx === currentPeriodIdx;
+                        const isCurrent = idx === currentSundayIdx;
                         return (
                             <div key={idx}
                                 className={`bg-white rounded-xl border shadow-sm p-3 ${isCurrent ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-100'
@@ -370,10 +338,7 @@ function LocationLookupTab({ currentPeriodIdx }) {
                                                 NOW
                                             </span>
                                         )}
-                                        <span className="text-xs text-gray-500">Period {idx + 1}</span>
-                                        <p className="text-xs text-gray-400 mt-0.5">
-                                            {fmtSunday(p.s1)} & {fmtSunday(p.s2)}
-                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{fmtSunday(s.date)}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xl font-bold text-red-700">CMD {cmd}</p>
@@ -386,28 +351,26 @@ function LocationLookupTab({ currentPeriodIdx }) {
                 </div>
             )}
 
-            {/* BY PERIOD: pick a period, see all locations */}
-            {viewMode === 'byPeriod' && (
+            {/* BY SUNDAY: pick a Sunday, see all locations */}
+            {viewMode === 'bySunday' && (
                 <div className="space-y-3">
                     <div>
-                        <label className="text-xs font-semibold text-gray-500 block mb-1">Select Period</label>
-                        <select value={selectedPeriod} onChange={e => setSelectedPeriod(parseInt(e.target.value))}
+                        <label className="text-xs font-semibold text-gray-500 block mb-1">Select Sunday</label>
+                        <select value={selectedSunday} onChange={e => setSelectedSunday(parseInt(e.target.value))}
                             className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm">
-                            {ROSTER_PERIODS.map((p, idx) => (
+                            {ROSTER_SUNDAYS.map((s, idx) => (
                                 <option key={idx} value={idx}>
-                                    Period {idx + 1}: {fmtSunday(p.s1)} & {fmtSunday(p.s2)}
-                                    {idx === currentPeriodIdx ? ' ← Current' : ''}
+                                    {fmtSunday(s.date)}
+                                    {idx === currentSundayIdx ? ' ← This Sunday' : ''}
                                 </option>
                             ))}
                         </select>
                     </div>
 
                     <div className="bg-gray-800 text-white rounded-xl p-3 text-center text-sm">
-                        <p className="text-xs text-gray-400 mb-1">Dress Code for Period {selectedPeriod + 1}</p>
+                        <p className="text-xs text-gray-400 mb-1">Dress Code for {fmtSunday(sunday.date)}</p>
                         <p className="font-semibold">
-                            1st: {DRESS_LABELS[period.d1]?.emoji} {DRESS_LABELS[period.d1]?.short}
-                            &nbsp;·&nbsp;
-                            2nd: {DRESS_LABELS[period.d2]?.emoji} {DRESS_LABELS[period.d2]?.short}
+                            {DRESS_LABELS[sunday.dress]?.emoji} {DRESS_LABELS[sunday.dress]?.short}
                         </p>
                     </div>
 
@@ -419,7 +382,7 @@ function LocationLookupTab({ currentPeriodIdx }) {
                                     <span className="text-xs font-bold text-red-600">{loc}</span>
                                     <p className="text-xs text-gray-600 mt-0.5 leading-tight">{LOCATIONS[loc]}</p>
                                 </div>
-                                <p className="text-lg font-bold text-gray-800 flex-shrink-0">CMD {cmds[selectedPeriod]}</p>
+                                <p className="text-lg font-bold text-gray-800 flex-shrink-0">CMD {cmds[selectedSunday]}</p>
                             </div>
                         </div>
                     ))}
